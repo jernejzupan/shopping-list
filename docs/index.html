@@ -288,8 +288,16 @@
                 parseText(raw) {
                     const checkedRe = /^- \[x\] (.*)$/i;
                     const uncheckedRe = /^- \[ \] (.*)$/;
+                    // Build a map of text -> queue of existing ids (preserves duplicates)
+                    const idQueues = {};
+                    for (const item of this.items) {
+                        if (!idQueues[item.text]) idQueues[item.text] = [];
+                        idQueues[item.text].push(item.id);
+                    }
+
+                    const lines = raw.split('\n');
                     const newItems = [];
-                    for (const line of raw.split('\n')) {
+                    for (const line of lines) {
                         const trimmed = line.trimEnd();
                         if (trimmed === '') continue;
                         let checked = false;
@@ -298,13 +306,10 @@
                         const um = trimmed.match(uncheckedRe);
                         if (cm) { checked = true; text = cm[1]; }
                         else if (um) { checked = false; text = um[1]; }
-                        // Reuse existing id if text matches, otherwise assign new
-                        const existing = this.items.find(i => i.text === text);
-                        newItems.push({
-                            id: existing ? existing.id : this._nextId++,
-                            text,
-                            checked,
-                        });
+                        // Reuse the next available id for this text, otherwise mint a new one
+                        const queue = idQueues[text];
+                        const id = (queue && queue.length > 0) ? queue.shift() : this._nextId++;
+                        newItems.push({ id, text, checked });
                     }
                     this.items = newItems;
                 },
