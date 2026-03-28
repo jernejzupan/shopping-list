@@ -6,8 +6,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Shopping List</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
     <style>
-        /* Sticky nav */
+        /* ── Sticky nav ── */
         nav.app-nav {
             position: sticky;
             top: 0;
@@ -35,16 +36,22 @@
             cursor: pointer;
         }
 
-        /* Remove Pico's default bottom margin from switch inputs inside nav */
         .nav-toggles input[type="checkbox"] {
             margin: 0;
+        }
+
+        .nav-prices-btn {
+            margin: 0;
+            padding: 0.25rem 0.6rem;
+            font-size: 0.85rem;
+            line-height: 1;
         }
 
         .nav-filter input {
             margin: 0;
         }
 
-        /* Full-viewport textarea */
+        /* ── Full-viewport textarea ── */
         .raw-textarea {
             width: 100%;
             min-height: calc(100vh - 120px);
@@ -60,13 +67,13 @@
             outline: none;
         }
 
-        /* Checked items */
-        .checked-item label {
+        /* ── Checked items ── */
+        .checked-item .item-label {
             text-decoration: line-through;
             color: var(--pico-muted-color);
         }
 
-        /* List items */
+        /* ── List items ── */
         .item-list {
             list-style: none;
             padding: 0;
@@ -76,9 +83,9 @@
         .item-list li {
             display: flex;
             align-items: center;
-            padding: 0.6rem 1rem;
+            padding: 0.5rem 0.75rem;
             border-bottom: 1px solid var(--pico-muted-border-color);
-            gap: 0.6rem;
+            gap: 0.5rem;
         }
 
         .item-list li:last-child {
@@ -90,31 +97,101 @@
             flex-shrink: 0;
         }
 
-        .item-list li label {
-            margin: 0;
-            cursor: pointer;
+        /* ── Item label (click-to-edit area) ── */
+        .item-label {
             flex: 1;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            cursor: pointer;
             font-size: 1rem;
+            min-width: 0;
         }
 
-        /* Divider between unchecked and checked */
+        /* ── Quantity badge ── */
+        .item-qty {
+            display: inline-block;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--pico-primary-inverse);
+            background: var(--pico-primary);
+            border-radius: 0.3rem;
+            padding: 0.1rem 0.35rem;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        /* ── Inline edit input ── */
+        .item-edit-input {
+            flex: 1;
+            margin: 0;
+            padding: 0.15rem 0.3rem;
+            font-size: 1rem;
+            height: auto;
+            min-width: 0;
+        }
+
+        /* ── Per-item toolbar ── */
+        .item-toolbar {
+            display: flex;
+            align-items: center;
+            gap: 0.15rem;
+            flex-shrink: 0;
+        }
+
+        .icon-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: none;
+            border: none;
+            padding: 0.25rem 0.35rem;
+            margin: 0;
+            font-size: 0.8rem;
+            color: var(--pico-muted-color);
+            cursor: pointer;
+            border-radius: 0.25rem;
+            line-height: 1;
+            width: auto;
+        }
+
+        .icon-btn:hover:not(:disabled) {
+            color: var(--pico-color);
+            background: var(--pico-muted-border-color);
+        }
+
+        .icon-btn:disabled {
+            opacity: 0.25;
+            cursor: default;
+        }
+
+        .icon-btn.price-btn {
+            color: var(--pico-primary);
+        }
+
+        .icon-btn.price-btn:hover {
+            color: var(--pico-primary-hover);
+            background: var(--pico-primary-background);
+        }
+
+        /* ── Divider ── */
         .list-divider {
             border: none;
             border-top: 2px solid var(--pico-muted-border-color);
             margin: 0;
         }
 
-        /* Empty state */
+        /* ── Empty state ── */
         .empty-state {
             padding: 2rem 1rem;
             text-align: center;
             color: var(--pico-muted-color);
         }
 
-        /* Main content area */
+        /* ── Main content area ── */
         main.app-main {
             padding: 0;
-            max-width: 640px;
+            max-width: 680px;
             margin: 0 auto;
         }
 
@@ -122,6 +199,113 @@
             margin: 1rem;
             padding: 0;
             overflow: hidden;
+        }
+
+        /* ── Price view (formatted text) ── */
+        .price-view {
+            padding: 1rem 1.25rem;
+            font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+            font-size: 0.9rem;
+            line-height: 1.8;
+            white-space: pre;
+            color: var(--pico-color);
+        }
+
+        .price-view-empty {
+            padding: 2rem 1rem;
+            text-align: center;
+            color: var(--pico-muted-color);
+        }
+
+        /* ── Price modal ── */
+        dialog article {
+            max-width: 520px;
+            width: 95vw;
+        }
+
+        .price-add-form {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            flex-wrap: wrap;
+            margin-bottom: 1rem;
+        }
+
+        .price-add-form input[type="date"] {
+            margin: 0;
+            padding: 0.3rem 0.5rem;
+            font-size: 0.9rem;
+            height: auto;
+            width: 7.5rem;
+            flex-shrink: 0;
+        }
+
+        .price-add-form input[type="text"] {
+            margin: 0;
+            padding: 0.3rem 0.5rem;
+            font-size: 0.9rem;
+            height: auto;
+            flex: 1;
+            min-width: 0;
+            font-family: "SFMono-Regular", Consolas, monospace;
+        }
+
+        .price-add-form button {
+            margin: 0;
+            padding: 0.3rem 0.7rem;
+            font-size: 0.9rem;
+            width: auto;
+            flex-shrink: 0;
+        }
+
+        .price-entry-list {
+            list-style: none;
+            padding: 0;
+            margin: 0 0 0.5rem;
+        }
+
+        .price-entry-list li {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.35rem 0;
+            border-bottom: 1px solid var(--pico-muted-border-color);
+            font-size: 0.9rem;
+        }
+
+        .price-entry-list li:last-child {
+            border-bottom: none;
+        }
+
+        .price-entry-date {
+            color: var(--pico-muted-color);
+            font-size: 0.82rem;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        .price-entry-value {
+            flex: 1;
+            font-family: "SFMono-Regular", Consolas, monospace;
+        }
+
+        .price-entry-normalized {
+            font-family: "SFMono-Regular", Consolas, monospace;
+            font-size: 0.82rem;
+            color: var(--pico-primary);
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        .price-form-preview {
+            font-size: 0.82rem;
+            color: var(--pico-primary);
+            font-family: "SFMono-Regular", Consolas, monospace;
+            align-self: center;
+        }
+
+        .price-entry-list .icon-btn {
+            font-size: 0.75rem;
         }
     </style>
 </head>
@@ -140,8 +324,11 @@
                     <input type="checkbox" role="switch" v-model="shoppingMode" />
                     Shopping
                 </label>
+                <button class="outline nav-prices-btn" @click="togglePriceView()">
+                    <i class="fa-solid fa-tags"></i> Prices
+                </button>
             </div>
-            <div class="nav-filter" v-if="!textMode">
+            <div class="nav-filter" v-if="!textMode && !priceViewMode">
                 <input type="search" v-model="filterText" placeholder="Filter items…" aria-label="Filter items" />
             </div>
         </nav>
@@ -155,6 +342,12 @@
                         spellcheck="false"></textarea>
                 </template>
 
+                <!-- Price view mode -->
+                <template v-else-if="priceViewMode">
+                    <div v-if="priceViewText" class="price-view">{{ priceViewText }}</div>
+                    <p v-else class="price-view-empty">No price data recorded yet.</p>
+                </template>
+
                 <!-- Checkbox mode -->
                 <template v-else>
 
@@ -166,9 +359,31 @@
                         <!-- Unchecked list -->
                         <ul class="item-list" v-if="filteredUncheckedItems.length > 0">
                             <li v-for="item in filteredUncheckedItems" :key="item.id">
-                                <input type="checkbox" :id="'item-' + item.id" :checked="item.checked"
+                                <input type="checkbox" :id="'chk-' + item.id" :checked="item.checked"
                                     @change="toggleCheck(item)" />
-                                <label :for="'item-' + item.id">{{ item.text }}</label>
+                                <!-- Inline edit input -->
+                                <input v-if="editingItemId === item.id" class="item-edit-input" :id="'edit-' + item.id"
+                                    v-model="editDraft" @blur="commitEdit(item)" @keyup.enter="commitEdit(item)"
+                                    @keyup.escape="cancelEdit(item)" />
+                                <!-- Label (click to edit) -->
+                                <span v-else class="item-label" @click="startEdit(item)">
+                                    <span class="item-qty" v-if="itemQty(item.text)">{{ itemQty(item.text) }}</span>
+                                    <span>{{ itemName(item.text) }}</span>
+                                </span>
+                                <!-- Toolbar -->
+                                <div class="item-toolbar">
+                                    <button type="button" class="icon-btn" title="Decrease"
+                                        @click="adjustQty(item, -1)">
+                                        <i class="fa-solid fa-minus"></i>
+                                    </button>
+                                    <button type="button" class="icon-btn" title="Increase" @click="adjustQty(item, 1)">
+                                        <i class="fa-solid fa-plus"></i>
+                                    </button>
+                                    <button type="button" v-if="shoppingMode" class="icon-btn price-btn"
+                                        title="Price history" @click="openPriceModal(item)">
+                                        <i class="fa-solid fa-calculator"></i>
+                                    </button>
+                                </div>
                             </li>
                         </ul>
 
@@ -179,9 +394,31 @@
                         <!-- Checked list -->
                         <ul class="item-list" v-if="filteredCheckedItems.length > 0">
                             <li class="checked-item" v-for="item in filteredCheckedItems" :key="item.id">
-                                <input type="checkbox" :id="'item-' + item.id" :checked="item.checked"
+                                <input type="checkbox" :id="'chk-' + item.id" :checked="item.checked"
                                     @change="toggleCheck(item)" />
-                                <label :for="'item-' + item.id">{{ item.text }}</label>
+                                <!-- Inline edit input -->
+                                <input v-if="editingItemId === item.id" class="item-edit-input" :id="'edit-' + item.id"
+                                    v-model="editDraft" @blur="commitEdit(item)" @keyup.enter="commitEdit(item)"
+                                    @keyup.escape="cancelEdit(item)" />
+                                <!-- Label (click to edit) -->
+                                <span v-else class="item-label" @click="startEdit(item)">
+                                    <span class="item-qty" v-if="itemQty(item.text)">{{ itemQty(item.text) }}</span>
+                                    <span>{{ itemName(item.text) }}</span>
+                                </span>
+                                <!-- Toolbar -->
+                                <div class="item-toolbar">
+                                    <button type="button" class="icon-btn" title="Decrease"
+                                        @click="adjustQty(item, -1)">
+                                        <i class="fa-solid fa-minus"></i>
+                                    </button>
+                                    <button type="button" class="icon-btn" title="Increase" @click="adjustQty(item, 1)">
+                                        <i class="fa-solid fa-plus"></i>
+                                    </button>
+                                    <button type="button" v-if="shoppingMode" class="icon-btn price-btn"
+                                        title="Price history" @click="openPriceModal(item)">
+                                        <i class="fa-solid fa-calculator"></i>
+                                    </button>
+                                </div>
                             </li>
                         </ul>
 
@@ -197,12 +434,96 @@
             </article>
         </main>
 
+        <!-- Price calculator modal -->
+        <dialog :open="priceModalItem !== null" @click.self="closePriceModal()">
+            <article>
+                <header>
+                    <button class="close" aria-label="Close" @click="closePriceModal()"></button>
+                    <p><strong>Price: {{ priceModalItem }}</strong></p>
+                </header>
+
+                <!-- Add entry form -->
+                <div class="price-add-form">
+                    <input type="date" v-model="priceForm.date" />
+                    <input type="text" v-model="priceForm.raw" placeholder="5/1kg" spellcheck="false"
+                        @keyup.enter="addPriceEntry()" />
+                    <span v-if="priceFormNormalized" class="price-form-preview">= {{ priceFormNormalized }}</span>
+                    <button type="button" @click="addPriceEntry()"><i class="fa-solid fa-plus"></i></button>
+                </div>
+
+                <!-- Entry list -->
+                <ul class="price-entry-list" v-if="currentPriceEntries.length > 0">
+                    <li v-for="(entry, idx) in currentPriceEntries" :key="idx">
+                        <span class="price-entry-date">{{ entry.date }}</span>
+                        <span class="price-entry-value">{{ entry.price }}€/{{ entry.amount }}{{ entry.amountUnit
+                            }}</span>
+                        <span v-if="entryNormalized(entry)" class="price-entry-normalized">= {{ entryNormalized(entry)
+                            }}</span>
+                        <button type="button" class="icon-btn" title="Delete" @click="deletePriceEntry(idx)">
+                            <i class="fa-solid fa-trash"></i>
+                        </button>
+                    </li>
+                </ul>
+                <p v-else class="empty-state" style="padding:0.5rem 0">No entries yet.</p>
+
+                <footer>
+                    <button @click="closePriceModal()">Close</button>
+                </footer>
+            </article>
+        </dialog>
+
     </div>
 
     <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
     <script>
-        const { createApp } = Vue;
+        const { createApp, nextTick } = Vue;
         const STORAGE_KEY = 'sldata';
+
+        /* ── Helper: parse quantity/unit prefix from item text ── */
+        function parseItemText(text) {
+            // Format: <number>[unit] <name>  e.g. "2kg apples", "3 eggs", "milk"
+            const m = text.match(/^(\d+(?:\.\d+)?)(g|kg|ml|l)?\s+(.+)$/i);
+            if (m) {
+                return {
+                    quantity: parseFloat(m[1]),
+                    unit: m[2] ? m[2].toLowerCase() : null,
+                    name: m[3],
+                };
+            }
+            return { quantity: null, unit: null, name: text };
+        }
+
+        /* ── Parse raw price entry text, e.g. "5/1kg", "2.5/500g" ── */
+        function parsePriceRaw(raw) {
+            if (!raw) return null;
+            const m = raw.trim().match(/^(\d+(?:\.\d+)?)\/(\d+(?:\.\d+)?)(g|kg|ml|l)?$/i);
+            if (!m) return null;
+            return {
+                price: parseFloat(m[1]),
+                amount: parseFloat(m[2]),
+                unit: m[3] ? m[3].toLowerCase() : null,
+            };
+        }
+
+        /* ── Today's date as YYYY-MM-DD ── */
+        function today() {
+            return new Date().toISOString().slice(0, 10);
+        }
+
+        /* ── Normalize price to €/kg or €/l ── */
+        function normalizePrice(price, amount, unit) {
+            price = parseFloat(price);
+            amount = parseFloat(amount);
+            if (!price || !amount || isNaN(price) || isNaN(amount) || amount === 0) return null;
+            let perUnit, label;
+            if (unit === 'g') { perUnit = price / amount * 1000; label = 'kg'; }
+            else if (unit === 'kg') { perUnit = price / amount; label = 'kg'; }
+            else if (unit === 'ml') { perUnit = price / amount * 1000; label = 'l'; }
+            else if (unit === 'l') { perUnit = price / amount; label = 'l'; }
+            else return null;
+            const rounded = Math.round(perUnit * 100) / 100;
+            return `${rounded}\u20ac/${label}`;
+        }
 
         createApp({
             data() {
@@ -210,9 +531,25 @@
                     items: [],           // [{ id, text, checked }]
                     textMode: false,
                     shoppingMode: false,
-                    filterText: '',      // not persisted
-                    draftText: '',       // live textarea content; synced on mode switch
+                    priceViewMode: false,  // not persisted
+                    filterText: '',        // not persisted
+                    draftText: '',
                     _nextId: 1,
+
+                    // Inline editing
+                    editingItemId: null,
+                    editDraft: '',
+                    _editOriginal: '',
+
+                    // Price data: { "<name-lower>": [{ date, price, priceUnit, amount, amountUnit }] }
+                    priceData: {},
+
+                    // Price modal state
+                    priceModalItem: null,  // item name string when modal open, null = closed
+                    priceForm: {
+                        date: today(),
+                        raw: '',      // e.g. "5/1kg"
+                    },
                 };
             },
 
@@ -233,6 +570,35 @@
                     const q = this.filterText.toLowerCase();
                     return this.checkedItems.filter(i => i.text.toLowerCase().includes(q));
                 },
+
+                /* Current entries for the modal (last 10, already sorted desc) */
+                currentPriceEntries() {
+                    if (!this.priceModalItem) return [];
+                    const entries = this.priceData[this.priceModalItem.toLowerCase()] || [];
+                    return entries.slice(0, 10);
+                },
+
+                /* Live normalized preview for the add-entry form */
+                priceFormNormalized() {
+                    const p = parsePriceRaw(this.priceForm.raw);
+                    if (!p) return null;
+                    return normalizePrice(p.price, p.amount, p.unit);
+                },
+
+                /* Formatted price data for the price view */
+                priceViewText() {
+                    const lines = [];
+                    const keys = Object.keys(this.priceData).sort();
+                    for (const name of keys) {
+                        const entries = this.priceData[name];
+                        if (!entries || entries.length === 0) continue;
+                        lines.push(`- ${name}`);
+                        for (const e of entries) {
+                            lines.push(`  - ${e.date}  ${e.price}€/${e.amount}${e.amountUnit}`);
+                        }
+                    }
+                    return lines.join('\n');
+                },
             },
 
             watch: {
@@ -243,6 +609,7 @@
                     } else if (newVal === true) {
                         // checkbox → text: render current items into draft
                         this.draftText = this.renderText();
+                        this.priceViewMode = false;
                     }
                     this.save();
                 },
@@ -258,6 +625,32 @@
             },
 
             methods: {
+                /* ── Display helpers ── */
+                entryNormalized(entry) {
+                    return normalizePrice(entry.price, entry.amount, entry.amountUnit);
+                },
+                itemQty(text) {
+                    const p = parseItemText(text);
+                    if (p.quantity === null) return '';
+                    return p.quantity + (p.unit || '');
+                },
+                itemName(text) {
+                    return parseItemText(text).name;
+                },
+                /* ── Modes ── */
+                togglePriceView() {
+                    if (!this.priceViewMode) {
+                        // Turning price view ON: exit text mode first so edits are preserved
+                        if (this.textMode) {
+                            this.parseText(this.draftText);
+                            this.textMode = false;
+                        }
+                        this.priceViewMode = true;
+                    } else {
+                        this.priceViewMode = false;
+                    }
+                },
+
                 /* ── Check toggling ── */
                 toggleCheck(item) {
                     const idx = this.items.findIndex(i => i.id === item.id);
@@ -274,8 +667,84 @@
                             this.items.splice(insertIdx, 0, moved);
                         }
                     }
-                    // Unchecking never changes order.
                     this.save();
+                },
+
+                /* ── Inline editing ── */
+                startEdit(item) {
+                    this.editingItemId = item.id;
+                    this.editDraft = item.text;
+                    this._editOriginal = item.text;
+                    nextTick(() => {
+                        const el = document.getElementById('edit-' + item.id);
+                        if (el) el.focus();
+                    });
+                },
+                commitEdit(item) {
+                    // Guard: blur fires again when the input is removed from DOM after
+                    // keyup.enter or keyup.escape already committed/cancelled — ignore it.
+                    if (this.editingItemId !== item.id) return;
+                    const trimmed = this.editDraft.trim();
+                    item.text = trimmed || this._editOriginal;
+                    this.editingItemId = null;
+                    this.editDraft = '';
+                    this._editOriginal = '';
+                    this.save();
+                },
+                cancelEdit(item) {
+                    item.text = this._editOriginal;
+                    this.editingItemId = null;
+                    this.editDraft = '';
+                    this._editOriginal = '';
+                },
+
+                /* ── Adjust quantity ── */
+                adjustQty(item, delta) {
+                    const p = parseItemText(item.text);
+                    // Step depends on unit: 100 for g/ml, 1 for kg/l/plain
+                    const step = (p.unit === 'g' || p.unit === 'ml') ? 100 : 1;
+                    const newQty = Math.round(((p.quantity ?? 0) + delta * step) * 1000) / 1000;
+                    if (newQty <= 0) {
+                        // Remove quantity prefix entirely
+                        item.text = p.name;
+                    } else {
+                        item.text = `${newQty}${p.unit ?? ''} ${p.name}`;
+                    }
+                    this.save();
+                },
+
+                /* ── Price modal ── */
+                openPriceModal(item) {
+                    this.priceModalItem = parseItemText(item.text).name;
+                    this.priceForm.date = today();
+                    this.priceForm.raw = '';
+                },
+                closePriceModal() {
+                    this.priceModalItem = null;
+                },
+                addPriceEntry() {
+                    const p = parsePriceRaw(this.priceForm.raw);
+                    if (!p) return;
+                    const name = this.priceModalItem.toLowerCase();
+                    if (!this.priceData[name]) this.priceData[name] = [];
+                    this.priceData[name].push({
+                        date: this.priceForm.date || today(),
+                        price: p.price,
+                        priceUnit: '€',
+                        amount: p.amount,
+                        amountUnit: p.unit,
+                    });
+                    // Sort descending by date
+                    this.priceData[name].sort((a, b) => b.date.localeCompare(a.date));
+                    this.priceForm.raw = '';
+                    this.save();
+                },
+                deletePriceEntry(idx) {
+                    const name = this.priceModalItem.toLowerCase();
+                    if (this.priceData[name]) {
+                        this.priceData[name].splice(idx, 1);
+                        this.save();
+                    }
                 },
 
                 /* ── Text ↔ items conversion ── */
@@ -288,12 +757,16 @@
                 parseText(raw) {
                     const checkedRe = /^- \[x\] (.*)$/i;
                     const uncheckedRe = /^- \[ \] (.*)$/;
-                    // Build a map of text -> queue of existing ids (preserves duplicates)
+
+                    // Build a map of text → queue of existing ids (preserves duplicates)
                     const idQueues = {};
                     for (const item of this.items) {
                         if (!idQueues[item.text]) idQueues[item.text] = [];
                         idQueues[item.text].push(item.id);
                     }
+
+                    // Guard: no ID may be assigned twice
+                    const usedIds = new Set();
 
                     const lines = raw.split('\n');
                     const newItems = [];
@@ -306,9 +779,17 @@
                         const um = trimmed.match(uncheckedRe);
                         if (cm) { checked = true; text = cm[1]; }
                         else if (um) { checked = false; text = um[1]; }
-                        // Reuse the next available id for this text, otherwise mint a new one
+
+                        // Reuse queued id for this text, but skip any already used
                         const queue = idQueues[text];
-                        const id = (queue && queue.length > 0) ? queue.shift() : this._nextId++;
+                        let id = null;
+                        while (queue && queue.length > 0) {
+                            const candidate = queue.shift();
+                            if (!usedIds.has(candidate)) { id = candidate; break; }
+                        }
+                        if (id === null) id = this._nextId++;
+                        usedIds.add(id);
+
                         newItems.push({ id, text, checked });
                     }
                     this.items = newItems;
@@ -317,12 +798,13 @@
                 /* ── Persistence ── */
                 save() {
                     localStorage.setItem(STORAGE_KEY, JSON.stringify({
-                        items: this.items,
+                        // Strip transient 'editing' flag — only persist { id, text, checked }
+                        items: this.items.map(({ id, text, checked }) => ({ id, text, checked })),
                         textMode: this.textMode,
                         shoppingMode: this.shoppingMode,
                         nextId: this._nextId,
-                        // Always store the rendered form so a refresh in text mode works
                         draftText: this.textMode ? this.draftText : this.renderText(),
+                        priceData: this.priceData,
                     }));
                 },
 
@@ -331,10 +813,31 @@
                         const raw = localStorage.getItem(STORAGE_KEY);
                         if (!raw) return;
                         const data = JSON.parse(raw);
-                        this.items = data.items ?? [];
+
+                        // Restore nextId first so dedup can mint fresh IDs
+                        this._nextId = data.nextId ?? 1;
+
+                        // Load items, stripping any unexpected fields
+                        this.items = (data.items ?? []).map(item => ({
+                            id: item.id,
+                            text: item.text,
+                            checked: item.checked ?? false,
+                        }));
+
+                        // Load-time dedup: reassign any duplicate IDs
+                        const seenIds = new Set();
+                        for (const item of this.items) {
+                            if (seenIds.has(item.id)) {
+                                item.id = this._nextId++;
+                            } else {
+                                seenIds.add(item.id);
+                                if (item.id >= this._nextId) this._nextId = item.id + 1;
+                            }
+                        }
+
                         this.textMode = data.textMode ?? false;
                         this.shoppingMode = data.shoppingMode ?? false;
-                        this._nextId = data.nextId ?? (this.items.length + 1);
+                        this.priceData = data.priceData ?? {};
                         this.draftText = this.textMode
                             ? (data.draftText ?? this.renderText())
                             : this.renderText();
