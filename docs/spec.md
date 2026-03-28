@@ -8,14 +8,15 @@ A single-page checklist app (similar to Google Keep) served via GitHub Pages. No
 
 ## Tech Stack
 
-| Concern     | Choice                                                                |
-| ----------- | --------------------------------------------------------------------- |
-| Framework   | Vue 3 Options API via CDN `<script>` tag                              |
-| CSS         | Pico CSS via CDN (classless baseline); custom CSS only when necessary |
-| Icons       | Font Awesome 6 Free via CDN                                           |
-| Persistence | `localStorage`                                                        |
-| Deployment  | GitHub Pages (static, single `index.html`)                            |
-| Build       | None                                                                  |
+| Concern     | Choice                                                                   |
+| ----------- | ------------------------------------------------------------------------ |
+| Framework   | Vue 3 Options API via CDN `<script type="module">` tag                   |
+| CSS         | Pico CSS via CDN (classless baseline); custom CSS in `style.css`         |
+| Icons       | Font Awesome 6 Free via CDN                                              |
+| Persistence | `localStorage`                                                           |
+| Deployment  | GitHub Pages (static, `index.html` + `style.css` + `core.js` + `app.js`) |
+| Build       | None                                                                     |
+| Testing     | Node built-in `node:test` + `node:assert`; run with `node --test`        |
 
 ---
 
@@ -65,14 +66,15 @@ Historical price entries, stored alongside items in `localStorage`:
 ```js
 priceData: {
   "<item-name-lowercase>": [
-    { date: "2026-03-27", price: 10, priceUnit: "€", amount: 1, amountUnit: "kg" },
+    { date: "2026-03-27", store: "spar", price: 10, priceUnit: "€", amount: 1, amountUnit: "kg", info: "good brand" },
     ...
   ]
 }
 ```
 
 - Linked to checklist items by **item name** (lowercase-normalized).
-- Each entry records: date, price (number + `€`), amount (number + unit).
+- Each entry records: date, store, price (number + `€`), amount (number + unit), and a free-text info note.
+- `store` and `info` default to `""` — old entries without these fields load without error.
 - Entries are sorted by date descending.
 - Up to the last 10 entries are displayed in the modal.
 
@@ -90,6 +92,7 @@ priceData: {
   "items": [...],
   "textMode": false,
   "shoppingMode": false,
+  "selectedStore": "lidl",
   "nextId": 42,
   "draftText": "...",
   "priceData": { ... }
@@ -97,6 +100,7 @@ priceData: {
 ```
 
 > Note: The transient `editing` flag on items is **stripped** before serialization.
+> `selectedStore` persists the last-used store across sessions.
 
 ---
 
@@ -134,8 +138,8 @@ Unchecking **never** moves an item regardless of mode.
 
 ### Price view mode (`priceViewMode: boolean`)
 
-- **ON** — the main area shows a read-only formatted view of all price data (see [Price Data Text View](#price-data-text-view)).
-- **OFF** — normal list/text view.
+- **ON** — the main area shows an **editable `<textarea>`** pre-populated with all price data in the canonical text format (see [Price Data Text View](#price-data-text-view)). The user may freely edit, copy, or paste entries.
+- **OFF** — if the textarea was modified, its content is parsed back into `priceData` and saved before switching back to normal view.
 - Mutually exclusive with `textMode` — activating one deactivates the other.
 - Toggled via a nav bar button (Font Awesome icon).
 - Not persisted.
@@ -155,7 +159,7 @@ Unchecking **never** moves an item regardless of mode.
 ```
 ┌────────────────────────────────────────────┐
 │  <nav> (sticky top)                        │
-│  [Text ●]  [Shopping ●]  [$ Prices]       │
+│  [Text ●]  [Shopping ●]  [Store ▼] [💰]   │
 │  [ 🔍 filter...                        ]   │  ← checkbox mode only
 ├────────────────────────────────────────────┤
 │                                            │
@@ -172,11 +176,11 @@ Unchecking **never** moves an item regardless of mode.
 │  ─────────────────────────────────────     │
 │  ☑ 500ml milk            [↑] [↓] [💰]     │  ← strikethrough, muted
 │                                            │
-│  (price view mode)                         │
+│  (price view mode — editable textarea)     │
 │  - apples                                  │
-│    - 2026-03-27  10€/1kg                   │
+│    - 2026-03-28 spar 10€/1kg good brand    │
 │  - milk                                    │
-│    - 2026-03-27  1.5€/1l                   │
+│    - 2026-03-27 lidl 1.5€/1l               │
 │                                            │
 └────────────────────────────────────────────┘
 ```
@@ -187,8 +191,9 @@ Unchecking **never** moves an item regardless of mode.
 - **Sticky**: `position: sticky; top: 0; z-index: 10;` with a solid background so content scrolls behind it.
 - Contains:
   1. The two toggle switches (Text, Shopping).
-  2. A **Prices** button (Font Awesome `fa-tags` or `fa-receipt` icon) — toggles `priceViewMode`.
-  3. The filter input (checkbox mode only, hidden when `textMode` or `priceViewMode` is on).
+  2. A **Store** dropdown (`<select>`) — always visible, hardcoded options: `lidl`, `spar`, `other`. Bound to `selectedStore`, persisted in `localStorage`. Pre-fills the store field when opening the price modal.
+  3. A **Prices** button (Font Awesome `fa-tags` or `fa-receipt` icon) — toggles `priceViewMode`.
+  4. The filter input (checkbox mode only, hidden when `textMode` or `priceViewMode` is on).
 
 ### Toggle Switches
 
@@ -241,19 +246,36 @@ A single `<textarea>` occupying the full remaining viewport height (`min-height:
 
 ### Price Data Text View
 
-Activated via the **Prices** nav button. Displays a read-only formatted view of all historical price data:
+Activated via the **Prices** nav button. Shows an **editable `<textarea>`** (same full-height styling as text mode) pre-populated with all price data in the following format:
 
 ```
 - apples
-  - 2026-03-27  10€/1kg
-  - 2026-03-20  8€/1kg
+  - 2026-03-28 spar 10€/1kg good brand with discount
+  - 2026-03-20 lidl 8€/1kg
 - milk
-  - 2026-03-27  1.5€/1l
+  - 2026-03-27 spar 1.5€/1l fresh
 ```
 
-- Items sorted alphabetically by name.
-- Entries within each item sorted by date descending.
+**Format rules:**
+
+- Each item name is on its own line: `- <name>`
+- Each price entry is indented: `  - <date> <store> <price>€/<amount><unit> <info>`
+- `<info>` is optional — everything after `<amount><unit>` on the same line is treated as the info note.
+- `<store>` is a single word (no spaces).
+- Items sorted alphabetically by name; entries within each item sorted by date descending.
 - Only items with at least one price entry are shown.
+
+**Parsing (on toggle-off):**
+
+Entry lines are matched by:
+```
+/^\s*-\s+(\d{4}-\d{2}-\d{2})\s+(\S+)\s+(\d+(?:\.\d+)?)€\/(\d+(?:\.\d+)?)(g|kg|ml|l)?\s*(.*)$/i
+```
+Groups: `date`, `store`, `price`, `amount`, `amountUnit`, `info`.
+
+Item name lines matched by: `/^-\s+(.+)$/`
+
+Any line not matching either pattern is silently skipped. The resulting object fully **replaces** `priceData` and is saved.
 
 ---
 
@@ -264,25 +286,30 @@ A native `<dialog>` element (Pico CSS supports `<dialog>` styling) opened from t
 ### Layout
 
 ```
-┌─────────────────────────────────────┐
-│  Price: apples                      │
-├─────────────────────────────────────┤
-│                                     │
-│  [2026-03-27] [10] € / [1] [kg] [+]│  ← add entry form
-│                                     │
-│  2026-03-27  10€ / 1kg         [🗑] │  ← existing entries
-│  2026-03-20   8€ / 1kg         [🗑] │    (last 10, sorted by date desc)
-│  ...                                │
-│                                     │
-│                          [Close]    │
-└─────────────────────────────────────┘
+┌──────────────────────────────────────────────┐
+│  Price: apples                               │
+├──────────────────────────────────────────────┤
+│                                              │
+│  [2026-03-28] [spar ▼] [5/1kg] [note...] [+]│  ← add entry form
+│                                              │
+│  2026-03-28 spar 10€/1kg good brand    [🗑]  │  ← existing entries
+│  2026-03-20 lidl  8€/1kg               [🗑]  │   (last 10, date desc)
+│  ...                                         │
+│                                              │
+│                               [Close]        │
+└──────────────────────────────────────────────┘
 ```
 
 ### Behaviour
 
 - **Header** shows the item name.
-- **Add form** — inputs: date (defaults to today), price (number, `€`), amount (number), unit dropdown (`g`, `kg`, `ml`, `l`). Add button (`fa-plus` icon) appends entry and saves.
-- **Entry list** — shows up to the last 10 entries sorted by date descending. Each row has a delete button (`fa-trash` icon).
+- **Add form** — inputs:
+  - Date (`<input type="date">`, defaults to today — wider than before to show full date).
+  - Store (`<select>`: `lidl`, `spar`, `other`) — pre-filled from `selectedStore` in the nav, but editable per-entry.
+  - Raw price/amount (`<input type="text">`, e.g. `5/1kg` or `2.5/500g`), with a live normalized preview.
+  - Info (`<input type="text">`, free-text note, optional).
+  - Add button (`fa-plus` icon) appends entry and saves.
+- **Entry list** — shows up to the last 10 entries sorted by date descending. Each row displays date, store, price€/amountUnit, info, and a delete button (`fa-trash`).
 - **Persistence** — entries are stored in `priceData` (inside `sldata` localStorage key), keyed by item name (lowercase).
 - **Close** button (or clicking backdrop) closes the modal.
 
@@ -290,6 +317,12 @@ A native `<dialog>` element (Pico CSS supports `<dialog>` styling) opened from t
 
 ```js
 priceModalItem: null,   // item name string when modal is open, null when closed
+priceForm: {
+  date: "",       // defaults to today()
+  store: "",      // pre-filled from selectedStore
+  raw: "",        // e.g. "5/1kg"
+  info: "",       // free-text note
+}
 ```
 
 ---
@@ -298,9 +331,9 @@ priceModalItem: null,   // item name string when modal is open, null when closed
 
 1. **Pico CSS** from CDN is the baseline — provides sensible typography, form element styling, toggle switches (`role="switch"`), dialog, nav, etc.
 2. **Font Awesome 6 Free** from CDN for all icons.
-3. **Custom CSS** is only added when Pico doesn't cover the need:
+3. **Custom CSS lives in `docs/style.css`** (linked from `index.html`). Only added when Pico doesn't cover the need:
    - Sticky nav (`position: sticky`)
-   - Full-viewport textarea height
+   - Full-viewport textarea height (text mode and price view mode)
    - Strikethrough / muted color for checked items
    - Divider between unchecked/checked lists
    - Item toolbar layout (`.item-toolbar`)
@@ -308,6 +341,7 @@ priceModalItem: null,   // item name string when modal is open, null when closed
    - Price modal / entry row styling
    - Price text view styling
    - Inline edit input (borderless, matches label styling until focused)
+   - Wider date input in price modal (`min-width` so full YYYY-MM-DD is visible)
    - Minor layout tweaks (gap, padding)
 
 ---
@@ -320,22 +354,68 @@ priceModalItem: null,   // item name string when modal is open, null when closed
 | `checkedItems`           | `items.filter(i => i.checked)` — preserves array order                         |
 | `filteredUncheckedItems` | `uncheckedItems` further filtered by `filterText` (case-insensitive substring) |
 | `filteredCheckedItems`   | `checkedItems` further filtered by `filterText` (case-insensitive substring)   |
-| `priceViewText`          | Formatted string of all price data for the price view mode                     |
+| `currentPriceEntries`    | `priceData[priceModalItem]` sliced to the last 10 entries, or `[]`             |
+| `priceFormNormalized`    | Live normalized price string (e.g. `= 5€/kg`) derived from `priceForm.raw`     |
 
 ---
 
-## Methods
+## Pure Functions (in `core.js`)
+
+All functions are exported ES module members, usable in both the browser and Node tests.
 
 ### `parseItemText(text)`
 
-Pure helper function (not a Vue method). Parses item text into structured parts.
+Parses item text into structured parts.
 
 ```js
 // Input:  "2kg apples"
 // Output: { quantity: 2, unit: "kg", name: "apples" }
 // Input:  "milk"
 // Output: { quantity: null, unit: null, name: "milk" }
+// Regex: /^(\d+(?:\.\d+)?)(g|kg|ml|l)?\s+(.+)$/i
 ```
+
+### `parsePriceRaw(raw)`
+
+Parses the freeform price/amount input string.
+
+```js
+// Input:  "5/1kg"    → { price: 5,   amount: 1,   amountUnit: "kg" }
+// Input:  "2.5/500g" → { price: 2.5, amount: 500, amountUnit: "g"  }
+// Invalid → null
+```
+
+### `normalizePrice(price, amount, amountUnit)`
+
+Returns a normalized per-kg or per-l price string for display (e.g. `5€/kg`).
+
+### `today()`
+
+Returns today's date as `"YYYY-MM-DD"`.
+
+### `renderPriceViewText(priceData)`
+
+Pure function. Takes a `priceData` object, returns the canonical multiline text string (sorted alphabetically, entries by date descending, format: `  - date store price€/amountUnit info`). Used to populate the price view textarea.
+
+### `parsePriceViewText(text)`
+
+Pure function. Parses the editable price view textarea back into a `priceData` object. Returns `{}` if the string is empty or has no valid entries. Silently skips unrecognized lines.
+
+### `renderText(items)`
+
+Pure function. Takes an `items` array, returns the checklist textarea string (`- [x]` / `- [ ]` lines).
+
+### `parseTextLines(raw, existingItems, nextIdStart)`
+
+Pure function. Parses raw checklist text back into items, reusing existing IDs where possible.
+
+```js
+// Returns: { items: Array<{id, text, checked}>, nextId: number }
+```
+
+---
+
+## Vue Methods
 
 ### `toggleCheck(item)`
 
@@ -364,15 +444,20 @@ Finds the item's index in `this.items` and swaps it with the adjacent item (prev
 
 ### `openPriceModal(item)`
 
-Sets `priceModalItem` to the item name (parsed via `parseItemText`). Opens the `<dialog>`.
+Sets `priceModalItem` to the item name (parsed via `parseItemText`). Resets `priceForm` with `date = today()`, `store = selectedStore`, `raw = ""`, `info = ""`. Opens the `<dialog>`.
 
-### `addPriceEntry(itemName, date, price, amount, amountUnit)`
+### `addPriceEntry()`
 
-Pushes a new entry to `priceData[itemName.toLowerCase()]`, sorts by date descending, calls `save()`.
+Reads `priceForm`. Pushes `{ date, store, price, priceUnit: "€", amount, amountUnit, info }` to `priceData[priceModalItem.toLowerCase()]`, sorts by date descending, calls `save()`.
 
 ### `deletePriceEntry(itemName, index)`
 
 Removes the entry at `index` from `priceData[itemName.toLowerCase()]`, calls `save()`.
+
+### `togglePriceView()`
+
+- If turning **on**: sets `priceViewMode = true`, sets `textMode = false`, populates `priceViewEditText = renderPriceViewText(priceData)`.
+- If turning **off**: parses `priceViewEditText` via `parsePriceViewText`, overwrites `priceData`, calls `save()`, sets `priceViewMode = false`.
 
 ### `save()`
 
@@ -381,6 +466,7 @@ localStorage.setItem('sldata', JSON.stringify({
   items: items.map(({ id, text, checked }) => ({ id, text, checked })),  // strip 'editing'
   textMode,
   shoppingMode,
+  selectedStore,
   nextId: _nextId,
   draftText,
   priceData
@@ -389,7 +475,7 @@ localStorage.setItem('sldata', JSON.stringify({
 
 ### `load()` (called in `created()`)
 
-Reads `sldata` from `localStorage` and rehydrates `items`, `textMode`, `shoppingMode`, `_nextId`, `draftText`, `priceData`. Falls back to empty defaults if the key doesn't exist. Runs duplicate-ID dedup on loaded items.
+Reads `sldata` from `localStorage` and rehydrates `items`, `textMode`, `shoppingMode`, `selectedStore`, `_nextId`, `draftText`, `priceData`. Falls back to empty defaults if the key doesn't exist. Runs duplicate-ID dedup on loaded items.
 
 ---
 
@@ -401,6 +487,7 @@ Reads `sldata` from `localStorage` and rehydrates `items`, `textMode`, `shopping
 | `items` (deep)                        | Call `save()`                                   |
 | `textMode`                            | Call `save()`                                   |
 | `shoppingMode`                        | Call `save()`                                   |
+| `selectedStore`                       | Call `save()`                                   |
 
 ---
 
@@ -408,10 +495,16 @@ Reads `sldata` from `localStorage` and rehydrates `items`, `textMode`, `shopping
 
 ```
 docs/
-  index.html        ← entire app (HTML + CSS + JS)
+  index.html        ← HTML shell + CDN links; no inline CSS or JS
+  style.css         ← all custom CSS
+  core.js           ← pure functions (ES module); shared by app.js and tests
+  app.js            ← Vue app definition (imports core.js); mounted in index.html
   spec.md           ← this file
   issues.md         ← known issues / bug reports
   journal.md        ← development journal
+tests/
+  core.test.js      ← Node built-in test runner; imports ../docs/core.js
+package.json        ← { "type": "module" } — enables ES module imports for Node
 ```
 
 ---
@@ -431,7 +524,7 @@ docs/
 9. The nav bar stays fixed at the top while the list scrolls.
 10. The textarea fills the remaining viewport height on mobile — no fixed max-height.
 11. Typing in the filter input narrows both the unchecked and checked lists by case-insensitive substring match.
-12. Pico CSS handles base styling; only minimal custom CSS is used.
+12. Pico CSS handles base styling; custom CSS lives only in `style.css`.
 
 ### ID uniqueness
 
@@ -463,12 +556,41 @@ docs/
 
 27. The price button in the toolbar opens a modal for the selected item.
 28. The modal shows up to the last 10 price entries sorted by date descending.
-29. New entries can be added with date, price (€), amount, and unit.
+29. New entries can be added with date, store, price/amount (raw input), and info note.
 30. Entries can be deleted individually.
 31. Price data is persisted in `localStorage` under `priceData`, keyed by item name (lowercase).
+32. The date input in the modal is wide enough to display the full YYYY-MM-DD value without truncation.
 
-### Price data text view
+### Store selector
 
-32. The Prices nav button toggles a read-only view showing all price data formatted as a text list.
-33. Items in the price view are sorted alphabetically; entries within each item by date descending.
-34. Only items with at least one price entry appear in the view.
+33. A store `<select>` (`lidl`, `spar`, `other`) is always visible in the nav bar.
+34. The selected store is persisted to `localStorage` and restored on page load.
+35. Opening the price modal pre-fills the store field from the nav selector, but allows per-entry override.
+36. Each saved price entry records the store name alongside the other fields.
+
+### Price data text view (editable)
+
+37. The Prices nav button toggles an editable textarea view of all price data.
+38. Items in the price view are sorted alphabetically; entries within each item by date descending.
+39. Only items with at least one price entry appear in the view.
+40. Each entry is rendered as: `  - date store price€/amountUnit info` (info is omitted if empty).
+41. Toggling the Prices view off parses the textarea content and overwrites `priceData` with the result, then saves.
+42. Entries with no info field round-trip correctly (render/parse with no info produces the same data).
+43. Old `localStorage` entries without `store` or `info` fields load without error (default to `""`).
+
+### File architecture
+
+44. `index.html` contains only the HTML shell and CDN link tags — no inline CSS or JS.
+45. All custom CSS lives in `docs/style.css` and is loaded via `<link>`.
+46. All pure logic lives in `docs/core.js` as an ES module.
+47. The Vue app lives in `docs/app.js` as an ES module that imports from `./core.js`.
+48. The app loads and functions correctly using the split file structure.
+
+### Tests
+
+49. `node --test tests/` runs without errors.
+50. `parseItemText` is tested for quantity+unit, quantity-only, and no-quantity inputs.
+51. `parsePriceRaw` is tested for valid and invalid inputs.
+52. `normalizePrice` is tested for unit conversions (g→kg, ml→l) and null unit.
+53. `renderPriceViewText` and `parsePriceViewText` are tested for correctness and round-trip fidelity (including store and info fields).
+54. `renderText` and `parseTextLines` are tested for checklist text round-tripping.
