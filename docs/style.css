@@ -1,3 +1,12 @@
+/* ── Prevent mobile zoom on double-tap and input focus ── */
+html {
+    touch-action: manipulation;          /* kills double-tap zoom */
+}
+
+input, select, textarea {
+    font-size: 16px !important;          /* prevents iOS auto-zoom on focus */
+}
+
 /* ── Sticky nav ── */
 nav.app-nav {
     position: sticky;
@@ -331,10 +340,7 @@ dialog article {
     flex-shrink: 0;
 }
 
-/* ── Touch actions ── */
-button,
-input[type="checkbox"],
-select,
-a {
-    touch-action: manipulation;
+.price-entry-list .icon-btn {
+    font-size: 0.75rem;
+    flex-shrink: 0;
 }
