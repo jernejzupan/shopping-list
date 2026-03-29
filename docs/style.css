@@ -331,7 +331,10 @@ dialog article {
     flex-shrink: 0;
 }
 
-.price-entry-list .icon-btn {
-    font-size: 0.75rem;
-    flex-shrink: 0;
+/* ── Touch actions ── */
+button,
+input[type="checkbox"],
+select,
+a {
+    touch-action: manipulation;
 }
