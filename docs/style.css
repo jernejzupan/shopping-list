@@ -1,10 +1,14 @@
 /* ── Prevent mobile zoom on double-tap and input focus ── */
 html {
-    touch-action: manipulation;          /* kills double-tap zoom */
+    touch-action: manipulation;
+    /* kills double-tap zoom */
 }
 
-input, select, textarea {
-    font-size: 16px !important;          /* prevents iOS auto-zoom on focus */
+input,
+select,
+textarea {
+    font-size: 16px !important;
+    /* prevents iOS auto-zoom on focus */
 }
 
 /* ── Sticky nav ── */
@@ -125,6 +129,17 @@ nav.app-nav {
     background: var(--pico-primary);
     border-radius: 0.3rem;
     padding: 0.1rem 0.35rem;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+/* ── Price display ── */
+.item-price {
+    display: inline-block;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--pico-muted-color);
+    margin-left: 0.25rem;
     white-space: nowrap;
     flex-shrink: 0;
 }

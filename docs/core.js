@@ -229,3 +229,67 @@ export function parsePriceViewText(text) {
 
     return priceData;
 }
+
+// ── Price comparison ──────────────────────────────────────────────────────
+
+/**
+ * Get price comparison info for an item across stores.
+ * Returns the most recent normalized price from the current store,
+ * plus min/max differences relative to other stores' most recent prices.
+ *
+ * @param {string} itemName - Item name (will be lowercased)
+ * @param {Object} priceData - Full priceData object
+ * @param {string} currentStore - Currently selected store name
+ * @returns {{ currentPrice: number, minDiff: number, maxDiff: number } | null}
+ *   - currentPrice: normalized price from current store (numeric value only)
+ *   - minDiff: difference to cheapest option (negative if current is more expensive)
+ *   - maxDiff: difference to most expensive option (positive if current is cheaper)
+ *   Returns null if no price data or current store has no price.
+ */
+export function getItemPriceInfo(itemName, priceData, currentStore) {
+    const name = itemName.toLowerCase();
+    const entries = priceData[name];
+    if (!entries || entries.length === 0) return null;
+
+    // Get most recent entry for each store
+    const storeLatest = {};
+    for (const entry of entries) {
+        const store = entry.store;
+        if (!store) continue;
+        if (!storeLatest[store] || entry.date > storeLatest[store].date) {
+            storeLatest[store] = entry;
+        }
+    }
+
+    const stores = Object.keys(storeLatest);
+    if (stores.length === 0) return null;
+
+    // Get normalized prices
+    const storePrices = {};
+    for (const store of stores) {
+        const entry = storeLatest[store];
+        const normalized = normalizePrice(entry.price, entry.amount, entry.amountUnit);
+        if (normalized) {
+            // Extract numeric value from "5€/kg" format
+            const match = normalized.match(/^(\d+(?:\.\d+)?)/);
+            if (match) {
+                storePrices[store] = parseFloat(match[1]);
+            }
+        }
+    }
+
+    const currentPrice = storePrices[currentStore];
+    if (currentPrice === undefined) return null;
+
+    const allPrices = Object.values(storePrices);
+    if (allPrices.length === 0) return null;
+
+    const minPrice = Math.min(...allPrices);
+    const maxPrice = Math.max(...allPrices);
+
+    return {
+        currentPrice,
+        minDiff: minPrice - currentPrice,  // negative if current is more expensive
+        maxDiff: maxPrice - currentPrice,  // positive if current is cheaper
+    };
+}

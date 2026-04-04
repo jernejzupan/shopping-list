@@ -237,6 +237,52 @@ The toolbar is always visible (not hover-only) and positioned on the right side 
 
 When an item's text starts with a quantity (and optional unit), it is displayed as a styled badge/prefix (e.g. `<span class="item-qty">2kg</span>`) before the item name in checklist view.
 
+#### Price Comparison Display
+
+When in **shopping mode**, each item shows price differences between the currently selected store and other stores with price data.
+
+**Format examples:**
+- Single other store: `+1.1 €/kg` or `-0.5 €/kg`
+- Multiple other stores: `(-0.5, +1.1)`
+
+**Meaning:**
+- `+1.1 €/kg` = current store is 1.1€/kg cheaper than the other store (you're saving money)
+- `-0.5 €/kg` = current store is 0.5€/kg more expensive than the other store (you're paying more)
+- `(-0.5, +1.1)` = there's a store 0.5€/kg cheaper (minDiff) and a store 1.1€/kg more expensive (maxDiff)
+
+**Example:**
+```
+Price data:
+- avokado
+  - 2026-03-28 lidl 2.99€/450g  (≈ 6.64€/kg)
+  - 2026-03-28 spar 3.5€/450g   (≈ 7.78€/kg)
+
+When shopping at lidl:
+  - [ ] avokado                       +1.1 €/kg
+       ↑ You're saving 1.1€/kg compared to spar
+
+When shopping at spar:
+  - [ ] avokado                       -1.1 €/kg
+       ↑ You're paying 1.1€/kg more than lidl
+```
+
+**Display rules:**
+- Only shown when in shopping mode
+- Only shown when the item has price data for the current store AND at least one other store
+- If there's only one store with prices (no comparison possible), nothing is shown
+- Price difference is shown in muted text, sized at 0.75rem, positioned in the item toolbar (before the +/- buttons)
+
+**Implementation:**
+- Core logic in `getItemPriceInfo(itemName, priceData, currentStore)` (pure function in `core.js`)
+- Finds most recent entry for each store, normalizes prices to €/kg or €/l
+- Returns `{ currentPrice, minDiff, maxDiff }` or `null` if no data
+- `minDiff` = cheapest price - current price (negative if current is more expensive)
+- `maxDiff` = most expensive price - current price (positive if current is cheaper)
+- UI method `itemPriceDisplay(text)` formats the output:
+  - If exactly one other store: shows the single difference with appropriate sign
+  - If multiple other stores: shows range `(minDiff, maxDiff)`
+  - If no other stores: shows nothing
+
 ### Text Mode
 
 A single `<textarea>` occupying the full remaining viewport height (`min-height: calc(100vh - <nav height>)`; no fixed max-height). On mobile the textarea fills the screen below the nav for easy editing.
@@ -400,6 +446,24 @@ Pure function. Takes a `priceData` object, returns the canonical multiline text 
 ### `parsePriceViewText(text)`
 
 Pure function. Parses the editable price view textarea back into a `priceData` object. Returns `{}` if the string is empty or has no valid entries. Silently skips unrecognized lines.
+
+### `getItemPriceInfo(itemName, priceData, currentStore)`
+
+Pure function. Returns price comparison data for an item across stores.
+
+```js
+// Input:  itemName = "apples", priceData with entries for lidl (8€/kg) and spar (10€/kg), currentStore = "lidl"
+// Output: { currentPrice: 8, minDiff: 0, maxDiff: 2 }
+//         (lidl is cheapest, spar is 2€ more expensive)
+// 
+// Output: null if item has no price data or current store has no price
+```
+
+**Behavior:**
+- Finds most recent entry for each store (by date)
+- Normalizes all prices to €/kg or €/l
+- Returns `currentPrice` (numeric only), `minDiff` (negative if current is more expensive), `maxDiff` (positive if current is cheaper)
+- Item name matching is case-insensitive
 
 ### `renderText(items)`
 

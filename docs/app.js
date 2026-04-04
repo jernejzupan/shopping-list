@@ -13,6 +13,7 @@ import {
     parseTextLines,
     renderPriceViewText,
     parsePriceViewText,
+    getItemPriceInfo,
 } from './core.js';
 
 const STORAGE_KEY = 'sldata';
@@ -126,6 +127,48 @@ createApp({
         },
         itemName(text) {
             return parseItemText(text).name;
+        },
+        itemPriceDisplay(text) {
+            if (!this.shoppingMode) return '';
+            const name = parseItemText(text).name;
+            const entries = this.priceData[name.toLowerCase()];
+            if (!entries || entries.length === 0) return '';
+            
+            // Find most recent entry for current store
+            const currentEntry = entries.find(e => e.store === this.selectedStore);
+            if (!currentEntry) return '';
+            
+            const info = getItemPriceInfo(name, this.priceData, this.selectedStore);
+            if (!info) return '';
+
+            // Format raw price from current store
+            const rawPrice = `${currentEntry.price}\u20ac/${currentEntry.amount}${currentEntry.amountUnit || ''}`;
+            
+            // Determine normalized unit for differences
+            const unit = currentEntry.amountUnit;
+            let normalizedUnit = '';
+            if (unit === 'g' || unit === 'kg') normalizedUnit = '\u20ac/kg';
+            else if (unit === 'ml' || unit === 'l') normalizedUnit = '\u20ac/l';
+            
+            // Only show differences if there are other stores to compare
+            const hasOtherStores = info.minDiff !== 0 || info.maxDiff !== 0;
+            if (!hasOtherStores) {
+                // Just show raw price if no comparison
+                return rawPrice;
+            }
+
+            // If exactly one other store, show single difference
+            const hasOnlyOneOther = (info.minDiff === 0 && info.maxDiff !== 0) || (info.minDiff !== 0 && info.maxDiff === 0);
+            if (hasOnlyOneOther) {
+                const diff = info.minDiff !== 0 ? info.minDiff : info.maxDiff;
+                const sign = diff >= 0 ? '+' : '';
+                return `${rawPrice} (${sign}${diff.toFixed(1)}) ${normalizedUnit}`;
+            }
+
+            // Multiple other stores: show range
+            const minStr = info.minDiff.toFixed(1);
+            const maxStr = info.maxDiff >= 0 ? `+${info.maxDiff.toFixed(1)}` : info.maxDiff.toFixed(1);
+            return `${rawPrice} (${minStr}, ${maxStr}) ${normalizedUnit}`;
         },
 
         /* ── Modes ── */

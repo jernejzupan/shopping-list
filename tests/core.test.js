@@ -16,6 +16,7 @@ import {
     parseTextLines,
     renderPriceViewText,
     parsePriceViewText,
+    getItemPriceInfo,
 } from '../docs/core.js';
 
 // ── parseItemText ─────────────────────────────────────────────────────────
@@ -306,4 +307,100 @@ test('parsePriceViewText: round-trip with renderPriceViewText', () => {
     assert.equal(pd.apples[0].info, 'organic');
     assert.equal(pd.apples[1].info, '');
     assert.equal(pd.milk[0].info, 'fresh');
+});
+
+// ── getItemPriceInfo ──────────────────────────────────────────────────────
+
+test('getItemPriceInfo: returns null for unknown item', () => {
+    assert.equal(getItemPriceInfo('unknown', {}, 'lidl'), null);
+});
+
+test('getItemPriceInfo: returns null when item has no entries', () => {
+    assert.equal(getItemPriceInfo('apples', { apples: [] }, 'lidl'), null);
+});
+
+test('getItemPriceInfo: returns null when current store has no price', () => {
+    const pd = {
+        apples: [{ date: '2026-03-28', store: 'spar', price: 10, amount: 1, amountUnit: 'kg', info: '' }],
+    };
+    assert.equal(getItemPriceInfo('apples', pd, 'lidl'), null);
+});
+
+test('getItemPriceInfo: single store returns zero diffs', () => {
+    const pd = {
+        apples: [{ date: '2026-03-28', store: 'lidl', price: 10, amount: 1, amountUnit: 'kg', info: '' }],
+    };
+    const result = getItemPriceInfo('apples', pd, 'lidl');
+    assert.equal(result.currentPrice, 10);
+    assert.equal(result.minDiff, 0);
+    assert.equal(result.maxDiff, 0);
+});
+
+test('getItemPriceInfo: multiple stores with current cheapest', () => {
+    const pd = {
+        apples: [
+            { date: '2026-03-28', store: 'lidl', price: 8, amount: 1, amountUnit: 'kg', info: '' },
+            { date: '2026-03-27', store: 'spar', price: 10, amount: 1, amountUnit: 'kg', info: '' },
+        ],
+    };
+    const result = getItemPriceInfo('apples', pd, 'lidl');
+    assert.equal(result.currentPrice, 8);
+    assert.equal(result.minDiff, 0);   // we are the cheapest
+    assert.equal(result.maxDiff, 2);   // most expensive is 2 more
+});
+
+test('getItemPriceInfo: multiple stores with current most expensive', () => {
+    const pd = {
+        apples: [
+            { date: '2026-03-28', store: 'lidl', price: 8, amount: 1, amountUnit: 'kg', info: '' },
+            { date: '2026-03-27', store: 'spar', price: 10, amount: 1, amountUnit: 'kg', info: '' },
+        ],
+    };
+    const result = getItemPriceInfo('apples', pd, 'spar');
+    assert.equal(result.currentPrice, 10);
+    assert.equal(result.minDiff, -2);  // cheapest is 2 less
+    assert.equal(result.maxDiff, 0);   // we are the most expensive
+});
+
+test('getItemPriceInfo: multiple stores with current in middle', () => {
+    const pd = {
+        apples: [
+            { date: '2026-03-28', store: 'lidl', price: 8, amount: 1, amountUnit: 'kg', info: '' },
+            { date: '2026-03-28', store: 'spar', price: 10, amount: 1, amountUnit: 'kg', info: '' },
+            { date: '2026-03-28', store: 'other', price: 12, amount: 1, amountUnit: 'kg', info: '' },
+        ],
+    };
+    const result = getItemPriceInfo('apples', pd, 'spar');
+    assert.equal(result.currentPrice, 10);
+    assert.equal(result.minDiff, -2);  // cheapest is 2 less
+    assert.equal(result.maxDiff, 2);   // most expensive is 2 more
+});
+
+test('getItemPriceInfo: uses most recent entry per store', () => {
+    const pd = {
+        apples: [
+            { date: '2026-03-28', store: 'lidl', price: 8, amount: 1, amountUnit: 'kg', info: '' },
+            { date: '2026-03-20', store: 'lidl', price: 12, amount: 1, amountUnit: 'kg', info: '' },
+        ],
+    };
+    const result = getItemPriceInfo('apples', pd, 'lidl');
+    assert.equal(result.currentPrice, 8);  // uses most recent date
+});
+
+test('getItemPriceInfo: handles unit conversion', () => {
+    const pd = {
+        apples: [
+            { date: '2026-03-28', store: 'lidl', price: 4, amount: 500, amountUnit: 'g', info: '' },
+        ],
+    };
+    const result = getItemPriceInfo('apples', pd, 'lidl');
+    assert.equal(result.currentPrice, 8);  // 4€/500g = 8€/kg
+});
+
+test('getItemPriceInfo: item name is case-insensitive', () => {
+    const pd = {
+        apples: [{ date: '2026-03-28', store: 'lidl', price: 10, amount: 1, amountUnit: 'kg', info: '' }],
+    };
+    const result = getItemPriceInfo('Apples', pd, 'lidl');
+    assert.equal(result.currentPrice, 10);
 });

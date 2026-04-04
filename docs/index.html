@@ -79,6 +79,8 @@
                                 </span>
                                 <!-- Toolbar -->
                                 <div class="item-toolbar">
+                                    <span v-if="itemPriceDisplay(item.text)" class="item-price">{{
+                                        itemPriceDisplay(item.text) }}</span>
                                     <button type="button" class="icon-btn" title="Decrease"
                                         @click="adjustQty(item, -1)">
                                         <i class="fa-solid fa-minus"></i>
@@ -114,6 +116,8 @@
                                 </span>
                                 <!-- Toolbar -->
                                 <div class="item-toolbar">
+                                    <span v-if="itemPriceDisplay(item.text)" class="item-price">{{
+                                        itemPriceDisplay(item.text) }}</span>
                                     <button type="button" class="icon-btn" title="Decrease"
                                         @click="adjustQty(item, -1)">
                                         <i class="fa-solid fa-minus"></i>
