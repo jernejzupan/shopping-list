@@ -133,23 +133,23 @@ createApp({
             const name = parseItemText(text).name;
             const entries = this.priceData[name.toLowerCase()];
             if (!entries || entries.length === 0) return '';
-            
+
             // Find most recent entry for current store
             const currentEntry = entries.find(e => e.store === this.selectedStore);
             if (!currentEntry) return '';
-            
+
             const info = getItemPriceInfo(name, this.priceData, this.selectedStore);
             if (!info) return '';
 
             // Format raw price from current store
             const rawPrice = `${currentEntry.price}\u20ac/${currentEntry.amount}${currentEntry.amountUnit || ''}`;
-            
+
             // Determine normalized unit for differences
             const unit = currentEntry.amountUnit;
             let normalizedUnit = '';
             if (unit === 'g' || unit === 'kg') normalizedUnit = '\u20ac/kg';
             else if (unit === 'ml' || unit === 'l') normalizedUnit = '\u20ac/l';
-            
+
             // Only show differences if there are other stores to compare
             const hasOtherStores = info.minDiff !== 0 || info.maxDiff !== 0;
             if (!hasOtherStores) {
