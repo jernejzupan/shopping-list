@@ -239,49 +239,42 @@ When an item's text starts with a quantity (and optional unit), it is displayed 
 
 #### Price Comparison Display
 
-When in **shopping mode**, each item shows price differences between the currently selected store and other stores with price data.
+When in **shopping mode**, each item shows normalized prices from other stores for comparison.
 
 **Format examples:**
-- Single other store: `+1.1 €/kg` or `-0.5 €/kg`
-- Multiple other stores: `(-0.5, +1.1)`
-
-**Meaning:**
-- `+1.1 €/kg` = current store is 1.1€/kg cheaper than the other store (you're saving money)
-- `-0.5 €/kg` = current store is 0.5€/kg more expensive than the other store (you're paying more)
-- `(-0.5, +1.1)` = there's a store 0.5€/kg cheaper (minDiff) and a store 1.1€/kg more expensive (maxDiff)
+- Current store has price, one other store: `2.5€/450g (6.4) €/kg`
+- Current store has price, multiple other stores: `2.5€/450g (6.4, 7.8) €/kg`
+- Current store has no price: `(6.4, 7.8) €/kg`
 
 **Example:**
 ```
 Price data:
-- avokado
-  - 2026-03-28 lidl 2.99€/450g  (≈ 6.64€/kg)
-  - 2026-03-28 spar 3.5€/450g   (≈ 7.78€/kg)
+- avocado
+  - 2026-03-28 lidl 2.99€/450g  (≈ 6.6€/kg)
+  - 2026-03-28 spar 3.5€/450g   (≈ 7.8€/kg)
 
 When shopping at lidl:
-  - [ ] avokado                       +1.1 €/kg
-       ↑ You're saving 1.1€/kg compared to spar
+  - [ ] avocado    2.99€/450g (7.8) €/kg
+       ↑ Shows raw price from lidl and normalized price from spar
 
-When shopping at spar:
-  - [ ] avokado                       -1.1 €/kg
-       ↑ You're paying 1.1€/kg more than lidl
+When shopping at other (no price):
+  - [ ] avocado    (6.6, 7.8) €/kg
+       ↑ Shows normalized prices from lidl and spar for comparison
 ```
 
 **Display rules:**
 - Only shown when in shopping mode
-- Only shown when the item has price data for the current store AND at least one other store
-- If there's only one store with prices (no comparison possible), nothing is shown
-- Price difference is shown in muted text, sized at 0.75rem, positioned in the item toolbar (before the +/- buttons)
+- Shows most recent normalized prices from other stores in parentheses
+- If current store has a price, shows raw price followed by other stores' normalized prices
+- If current store has no price, shows only other stores' normalized prices in parentheses
+- If no price data exists for any store, shows nothing
+- Price comparison is shown in muted text, sized at 0.75rem, positioned in the item toolbar (before the +/- buttons)
 
 **Implementation:**
-- Core logic in `getItemPriceInfo(itemName, priceData, currentStore)` (pure function in `core.js`)
-- Finds most recent entry for each store, normalizes prices to €/kg or €/l
-- Returns `{ currentPrice, minDiff, maxDiff }` or `null` if no data
-- `minDiff` = cheapest price - current price (negative if current is more expensive)
-- `maxDiff` = most expensive price - current price (positive if current is cheaper)
-- UI method `itemPriceDisplay(text)` formats the output:
-  - If exactly one other store: shows the single difference with appropriate sign
-  - If multiple other stores: shows range `(minDiff, maxDiff)`
-  - If no other stores: shows nothing
+- UI method `itemPriceDisplay(text)` handles all formatting logic
+- Finds most recent entry for current store and each other store
+- Normalizes prices to €/kg or €/l using `normalizePrice()` from `core.js`
+- Displays actual normalized prices, not differences
 
 ### Text Mode
 

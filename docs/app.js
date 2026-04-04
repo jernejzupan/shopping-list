@@ -136,39 +136,44 @@ createApp({
 
             // Find most recent entry for current store
             const currentEntry = entries.find(e => e.store === this.selectedStore);
-            if (!currentEntry) return '';
 
-            const info = getItemPriceInfo(name, this.priceData, this.selectedStore);
-            if (!info) return '';
+            // Find most recent entries for OTHER stores
+            const otherStores = {};
+            for (const entry of entries) {
+                if (entry.store !== this.selectedStore && !otherStores[entry.store]) {
+                    otherStores[entry.store] = entry;
+                }
+            }
 
-            // Format raw price from current store
-            const rawPrice = `${currentEntry.price}\u20ac/${currentEntry.amount}${currentEntry.amountUnit || ''}`;
+            // Extract normalized prices from other stores
+            const otherPrices = Object.values(otherStores).map(entry => {
+                const normalized = normalizePrice(entry.price, entry.amount, entry.amountUnit);
+                if (!normalized) return null;
+                const match = normalized.match(/([\d.]+)/);
+                return match ? parseFloat(match[1]).toFixed(1) : null;
+            }).filter(p => p !== null);
 
-            // Determine normalized unit for differences
-            const unit = currentEntry.amountUnit;
+            // Determine unit for display
             let normalizedUnit = '';
-            if (unit === 'g' || unit === 'kg') normalizedUnit = '\u20ac/kg';
-            else if (unit === 'ml' || unit === 'l') normalizedUnit = '\u20ac/l';
+            const refEntry = currentEntry || Object.values(otherStores)[0];
+            if (refEntry) {
+                const unit = refEntry.amountUnit;
+                if (unit === 'g' || unit === 'kg') normalizedUnit = '\u20ac/kg';
+                else if (unit === 'ml' || unit === 'l') normalizedUnit = '\u20ac/l';
+            }
 
-            // Only show differences if there are other stores to compare
-            const hasOtherStores = info.minDiff !== 0 || info.maxDiff !== 0;
-            if (!hasOtherStores) {
-                // Just show raw price if no comparison
+            // Format output
+            if (currentEntry) {
+                const rawPrice = `${currentEntry.price}\u20ac/${currentEntry.amount}${currentEntry.amountUnit || ''}`;
+                if (otherPrices.length > 0) {
+                    return `${rawPrice} (${otherPrices.join(', ')}) ${normalizedUnit}`;
+                }
                 return rawPrice;
+            } else if (otherPrices.length > 0) {
+                return `(${otherPrices.join(', ')}) ${normalizedUnit}`;
             }
 
-            // If exactly one other store, show single difference
-            const hasOnlyOneOther = (info.minDiff === 0 && info.maxDiff !== 0) || (info.minDiff !== 0 && info.maxDiff === 0);
-            if (hasOnlyOneOther) {
-                const diff = info.minDiff !== 0 ? info.minDiff : info.maxDiff;
-                const sign = diff >= 0 ? '+' : '';
-                return `${rawPrice} (${sign}${diff.toFixed(1)}) ${normalizedUnit}`;
-            }
-
-            // Multiple other stores: show range
-            const minStr = info.minDiff.toFixed(1);
-            const maxStr = info.maxDiff >= 0 ? `+${info.maxDiff.toFixed(1)}` : info.maxDiff.toFixed(1);
-            return `${rawPrice} (${minStr}, ${maxStr}) ${normalizedUnit}`;
+            return '';
         },
 
         /* ── Modes ── */
