@@ -190,7 +190,7 @@
                         <option v-for="s in storeOptions" :key="s" :value="s">{{ s }}</option>
                     </select>
                     <input type="text" v-model="priceForm.raw" placeholder="5/1kg" spellcheck="false"
-                        @keyup.enter="addPriceEntry()" />
+                        @keyup.enter="addPriceEntry()" :readonly="isMobile" />
                     <span v-if="priceFormNormalized" class="price-form-preview">= {{ priceFormNormalized }}</span>
                     <input type="text" class="price-info-input" v-model="priceForm.info" placeholder="note…"
                         @keyup.enter="addPriceEntry()" />

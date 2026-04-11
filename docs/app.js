@@ -129,6 +129,10 @@ createApp({
     },
 
     methods: {
+        /* Detect if running on a mobile device (for numpad input) */
+        isMobile() {
+            return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        },
         /* ── Display helpers ── */
         entryNormalized(entry) {
             return normalizePrice(entry.price, entry.amount, entry.amountUnit);
