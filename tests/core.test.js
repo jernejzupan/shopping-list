@@ -94,8 +94,14 @@ test('normalizePrice: ml → l conversion', () => {
     assert.equal(normalizePrice(1.5, 500, 'ml'), '3€/l');
 });
 
-test('normalizePrice: null unit returns null', () => {
-    assert.equal(normalizePrice(5, 6, null), null);
+test('normalizePrice: null unit (no unit) → €/pc', () => {
+    assert.equal(normalizePrice(4, 2, null), '2€/pc');
+    assert.equal(normalizePrice(10, 5, null), '2€/pc');
+    assert.equal(normalizePrice(3, 1, null), '3€/pc');
+});
+
+test('normalizePrice: unknown unit returns null', () => {
+    assert.equal(normalizePrice(5, 1, 'lb'), null);
 });
 
 test('normalizePrice: zero/invalid inputs return null', () => {

@@ -19,20 +19,28 @@
         <!-- Sticky nav -->
         <nav class="app-nav">
             <div class="nav-toggles">
-                <label>
-                    <input type="checkbox" role="switch" v-model="textMode" />
-                    Text
-                </label>
-                <label>
-                    <input type="checkbox" role="switch" v-model="shoppingMode" />
-                    Shop
-                </label>
+                <button type="button" class="nav-mode-btn" :class="{active: shoppingMode}"
+                    @click="shoppingMode = !shoppingMode"><i class="fa-solid fa-cart-shopping"></i></button>
+                <button type="button" class="nav-mode-btn" :class="{active: textMode}"
+                    @click="textMode = !textMode">T</button>
+                <button type="button" class="nav-mode-btn" :class="{active: priceViewMode}"
+                    @click="togglePriceView()">$</button>
                 <select class="nav-store-select" v-model="selectedStore" aria-label="Store">
                     <option v-for="s in storeOptions" :key="s" :value="s">{{ s }}</option>
                 </select>
-                <button class="outline nav-prices-btn" @click="togglePriceView()">
-                    <i class="fa-solid fa-tags"></i> Prices
-                </button>
+                <div class="nav-menu-wrapper">
+                    <button type="button" class="nav-mode-btn" aria-label="Menu" @click.stop="menuOpen = !menuOpen">
+                        <i class="fa-solid fa-bars"></i>
+                    </button>
+                    <div class="nav-menu-dropdown" v-if="menuOpen" @click.stop>
+                        <button type="button" @click="uncheckAll()">
+                            <i class="fa-regular fa-square"></i> Uncheck all
+                        </button>
+                        <button type="button" @click="copyAllData()">
+                            <i class="fa-regular fa-copy"></i> Copy all data
+                        </button>
+                    </div>
+                </div>
             </div>
             <div class="nav-filter" v-if="!textMode && !priceViewMode">
                 <input type="search" v-model="filterText" placeholder="Filter items…" aria-label="Filter items" />
@@ -65,33 +73,25 @@
                     <template v-else>
                         <!-- Unchecked list -->
                         <ul class="item-list" v-if="filteredUncheckedItems.length > 0">
-                            <li v-for="item in filteredUncheckedItems" :key="item.id">
+                            <li v-for="item in filteredUncheckedItems" :key="item.id"
+                                :class="{'selected-item': selectedItemId === item.id}">
+                                <span class="select-indicator" v-if="selectedItemId === item.id">::</span>
                                 <input type="checkbox" :id="'chk-' + item.id" :checked="item.checked"
                                     @change="toggleCheck(item)" />
                                 <!-- Inline edit input -->
                                 <input v-if="editingItemId === item.id" class="item-edit-input" :id="'edit-' + item.id"
                                     v-model="editDraft" @blur="commitEdit(item)" @keyup.enter="commitEdit(item)"
                                     @keyup.escape="cancelEdit(item)" />
-                                <!-- Label (click to edit) -->
-                                <span v-else class="item-label" @click="startEdit(item)">
+                                <!-- Label (tap to select, hold to edit) -->
+                                <span v-else class="item-label" @pointerdown="onItemPointerDown(item, $event)"
+                                    @pointerup="onItemPointerUp(item)" @pointermove="onItemPointerMove()"
+                                    @pointercancel="onItemPointerCancel()">
                                     <span class="item-qty" v-if="itemQty(item.text)">{{ itemQty(item.text) }}</span>
                                     <span>{{ itemName(item.text) }}</span>
                                 </span>
-                                <!-- Toolbar -->
-                                <div class="item-toolbar">
-                                    <span v-if="itemPriceDisplay(item.text)" class="item-price">{{
-                                        itemPriceDisplay(item.text) }}</span>
-                                    <button type="button" class="icon-btn" title="Decrease"
-                                        @click="adjustQty(item, -1)">
-                                        <i class="fa-solid fa-minus"></i>
-                                    </button>
-                                    <button type="button" class="icon-btn" title="Increase" @click="adjustQty(item, 1)">
-                                        <i class="fa-solid fa-plus"></i>
-                                    </button>
-                                    <button type="button" v-if="shoppingMode" class="icon-btn price-btn"
-                                        title="Price history" @click="openPriceModal(item)">
-                                        <i class="fa-solid fa-calculator"></i>
-                                    </button>
+                                <!-- Price display only (no action buttons) -->
+                                <div class="item-toolbar" v-if="shoppingMode && itemPriceDisplay(item.text)">
+                                    <span class="item-price">{{ itemPriceDisplay(item.text) }}</span>
                                 </div>
                             </li>
                         </ul>
@@ -102,33 +102,25 @@
 
                         <!-- Checked list -->
                         <ul class="item-list" v-if="filteredCheckedItems.length > 0">
-                            <li class="checked-item" v-for="item in filteredCheckedItems" :key="item.id">
+                            <li class="checked-item" v-for="item in filteredCheckedItems" :key="item.id"
+                                :class="{'selected-item': selectedItemId === item.id}">
+                                <span class="select-indicator" v-if="selectedItemId === item.id">::</span>
                                 <input type="checkbox" :id="'chk-' + item.id" :checked="item.checked"
                                     @change="toggleCheck(item)" />
                                 <!-- Inline edit input -->
                                 <input v-if="editingItemId === item.id" class="item-edit-input" :id="'edit-' + item.id"
                                     v-model="editDraft" @blur="commitEdit(item)" @keyup.enter="commitEdit(item)"
                                     @keyup.escape="cancelEdit(item)" />
-                                <!-- Label (click to edit) -->
-                                <span v-else class="item-label" @click="startEdit(item)">
+                                <!-- Label (tap to select, hold to edit) -->
+                                <span v-else class="item-label" @pointerdown="onItemPointerDown(item, $event)"
+                                    @pointerup="onItemPointerUp(item)" @pointermove="onItemPointerMove()"
+                                    @pointercancel="onItemPointerCancel()">
                                     <span class="item-qty" v-if="itemQty(item.text)">{{ itemQty(item.text) }}</span>
                                     <span>{{ itemName(item.text) }}</span>
                                 </span>
-                                <!-- Toolbar -->
-                                <div class="item-toolbar">
-                                    <span v-if="itemPriceDisplay(item.text)" class="item-price">{{
-                                        itemPriceDisplay(item.text) }}</span>
-                                    <button type="button" class="icon-btn" title="Decrease"
-                                        @click="adjustQty(item, -1)">
-                                        <i class="fa-solid fa-minus"></i>
-                                    </button>
-                                    <button type="button" class="icon-btn" title="Increase" @click="adjustQty(item, 1)">
-                                        <i class="fa-solid fa-plus"></i>
-                                    </button>
-                                    <button type="button" v-if="shoppingMode" class="icon-btn price-btn"
-                                        title="Price history" @click="openPriceModal(item)">
-                                        <i class="fa-solid fa-calculator"></i>
-                                    </button>
+                                <!-- Price display only (no action buttons) -->
+                                <div class="item-toolbar" v-if="shoppingMode && itemPriceDisplay(item.text)">
+                                    <span class="item-price">{{ itemPriceDisplay(item.text) }}</span>
                                 </div>
                             </li>
                         </ul>
@@ -144,6 +136,44 @@
 
             </article>
         </main>
+
+        <!-- Fixed bottom toolbar (checkbox mode only) -->
+        <nav class="bottom-toolbar" v-if="!textMode && !priceViewMode">
+            <div class="bottom-toolbar-left">
+                <button type="button" class="icon-btn" title="Increase quantity" :disabled="!selectedItem"
+                    @click="selectedItem && adjustQty(selectedItem, 1)">
+                    <i class="fa-solid fa-plus"></i>
+                </button>
+                <button type="button" class="icon-btn" title="Decrease quantity" :disabled="!selectedItem"
+                    @click="selectedItem && adjustQty(selectedItem, -1)">
+                    <i class="fa-solid fa-minus"></i>
+                </button>
+                <button type="button" class="icon-btn" title="Move up" :disabled="!selectedItem"
+                    @click="selectedItem && moveUp(selectedItem)">
+                    <i class="fa-solid fa-caret-up"></i>
+                </button>
+                <button type="button" class="icon-btn" title="Move down" :disabled="!selectedItem"
+                    @click="selectedItem && moveDown(selectedItem)">
+                    <i class="fa-solid fa-caret-down"></i>
+                </button>
+                <button type="button" class="icon-btn price-btn" title="Price history"
+                    :disabled="!selectedItem || !shoppingMode" @click="selectedItem && openPriceModal(selectedItem)">
+                    <i class="fa-solid fa-calculator"></i>
+                </button>
+                <button type="button" class="icon-btn" title="Undo" :disabled="undoStack.length === 0" @click="undo()">
+                    <i class="fa-solid fa-arrow-rotate-left"></i>
+                </button>
+            </div>
+            <div class="bottom-toolbar-right">
+                <button type="button" class="icon-btn" title="Add item after selected" @click="addItemAfterSelected()">
+                    <i class="fa-solid fa-circle-plus"></i>
+                </button>
+                <button type="button" class="icon-btn danger" title="Delete selected" :disabled="!selectedItem"
+                    @click="deleteSelectedItem()">
+                    <i class="fa-solid fa-trash"></i>
+                </button>
+            </div>
+        </nav>
 
         <!-- Price calculator modal -->
         <dialog :open="priceModalItem !== null" @click.self="closePriceModal()">
@@ -165,6 +195,29 @@
                     <input type="text" class="price-info-input" v-model="priceForm.info" placeholder="note…"
                         @keyup.enter="addPriceEntry()" />
                     <button type="button" @click="addPriceEntry()"><i class="fa-solid fa-plus"></i></button>
+                </div>
+
+                <!-- Numpad -->
+                <div class="price-numpad">
+                    <button type="button" @click="numpadInput('7')">7</button>
+                    <button type="button" @click="numpadInput('8')">8</button>
+                    <button type="button" @click="numpadInput('9')">9</button>
+                    <button type="button" @click="numpadInput('/')">/</button>
+                    <button type="button" @click="numpadInput('4')">4</button>
+                    <button type="button" @click="numpadInput('5')">5</button>
+                    <button type="button" @click="numpadInput('6')">6</button>
+                    <button type="button" @click="numpadUnit('g')">g</button>
+                    <button type="button" @click="numpadInput('1')">1</button>
+                    <button type="button" @click="numpadInput('2')">2</button>
+                    <button type="button" @click="numpadInput('3')">3</button>
+                    <button type="button" @click="numpadUnit('kg')">kg</button>
+                    <button type="button" @click="numpadInput('0')">0</button>
+                    <button type="button" @click="numpadInput('.')">.</button>
+                    <button type="button" class="numpad-del" @click="numpadDel()">DEL</button>
+                    <button type="button" @click="numpadUnit('l')">l</button>
+                    <button type="button" class="numpad-clr" @click="priceForm.raw = ''">CLR</button>
+                    <button type="button" @click="numpadUnit('ml')">ml</button>
+                    <button type="button" class="numpad-enter" @click="addPriceEntry()">ENTER</button>
                 </div>
 
                 <!-- Entry list -->

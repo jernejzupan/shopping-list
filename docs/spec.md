@@ -159,7 +159,7 @@ Unchecking **never** moves an item regardless of mode.
 ```
 ┌────────────────────────────────────────────┐
 │  <nav> (sticky top)                        │
-│  [Text ●]  [Shopping ●]  [Store ▼] [💰]   │
+│  [🛒] [T] [$]  [Store ▼]  [☰]            │  ← icon mode buttons (blue=on) + burger menu
 │  [ 🔍 filter...                        ]   │  ← checkbox mode only
 ├────────────────────────────────────────────┤
 │                                            │
@@ -171,10 +171,10 @@ Unchecking **never** moves an item regardless of mode.
 │  └──────────────────────────────────────┘  │
 │                                            │
 │  (checkbox mode)                           │
-│  ☐ 2kg  apples          [↑] [↓] [💰]     │  ← toolbar on right
-│  ☐      bread            [↑] [↓] [💰]     │
+│  :: ☐ 2kg  apples    2.5€/450g (7.8) €/kg │  ← :: = selected indicator
+│     ☐      bread                           │
 │  ─────────────────────────────────────     │
-│  ☑ 500ml milk            [↑] [↓] [💰]     │  ← strikethrough, muted
+│     ☑ 500ml milk                           │  ← strikethrough, muted
 │                                            │
 │  (price view mode — editable textarea)     │
 │  - apples                                  │
@@ -182,6 +182,8 @@ Unchecking **never** moves an item regardless of mode.
 │  - milk                                    │
 │    - 2026-03-27 lidl 1.5€/1l               │
 │                                            │
+├────────────────────────────────────────────┤
+│  [+] [-] [↑] [↓] [🖩] [↩]     [⊕]  [🗑] │  ← fixed bottom toolbar
 └────────────────────────────────────────────┘
 ```
 
@@ -190,19 +192,16 @@ Unchecking **never** moves an item regardless of mode.
 - Uses Pico CSS `<nav>` element for structure.
 - **Sticky**: `position: sticky; top: 0; z-index: 10;` with a solid background so content scrolls behind it.
 - Contains:
-  1. The two toggle switches (Text, Shopping).
+  1. Four compact **mode/action buttons** in order: **cart** (`fa-cart-shopping` icon) → **T** → **$** → **Store dropdown** → **burger** (`fa-bars` icon).
+     - **cart** (`fa-cart-shopping` icon) — toggles `shoppingMode`. Color: default (off) / `var(--pico-primary)` blue (on).
+     - **T** (text label) — toggles `textMode`. Same color rule.
+     - **$** (dollar sign label) — toggles `priceViewMode`. Same color rule.
   2. A **Store** dropdown (`<select>`) — always visible, hardcoded options: `lidl`, `spar`, `other`. Bound to `selectedStore`, persisted in `localStorage`. Pre-fills the store field when opening the price modal.
-  3. A **Prices** button (Font Awesome `fa-tags` or `fa-receipt` icon) — toggles `priceViewMode`.
+  3. A **Burger menu** button (`fa-bars` icon) — toggles a dropdown panel containing:
+     - **Uncheck all** (`fa-regular fa-square` icon) — calls `uncheckAll()`.
+     - **Copy all data** (`fa-regular fa-copy` icon) — calls `copyAllData()`.
+     The dropdown closes when the user taps outside it (via a document-level click listener).
   4. The filter input (checkbox mode only, hidden when `textMode` or `priceViewMode` is on).
-
-### Toggle Switches
-
-Two Pico-styled toggle switches (`<input type="checkbox" role="switch">`) inside the `<nav>`:
-
-- **Text** — toggles `textMode`
-- **Shopping** — toggles `shoppingMode`
-
-When `textMode` is switched **off**, the textarea content is parsed immediately.
 
 ### Checkbox Mode
 
@@ -213,25 +212,54 @@ Two `<ul>` lists rendered from computed properties:
 
 A divider between the two lists is hidden when either filtered list is empty.
 
+#### Item Selection
+
+- **Tap** an item's text area → selects that item (sets `selectedItemId`). Tapping the already-selected item deselects it.
+- Selected item is indicated by a `::` prefix span before the checkbox. No background color change.
+- Only one item can be selected at a time.
+- `selectedItemId` is transient — not persisted.
+
 #### Inline Editing
 
-- Clicking on an item's text in checklist view makes it editable (inline `<input type="text">`).
-- The input is auto-focused on activation.
-- **Blur** (click away) or **Enter**: commits the edit and saves.
-- **Escape**: reverts to the original text without saving.
-- Implemented via a transient `editing` boolean flag on each item (not persisted).
+- **Hold** (long-press ≥ 500 ms) on an item's text → enters inline edit mode (`<input type="text">`, auto-focused).
+- Pointer movement during hold cancels the long-press timer.
+- **Blur** (tap away) or **Enter**: commits the edit and saves.
+- **Escape**: cancels the edit, reverts to original text.
+- If a new blank item was created (via bottom toolbar ⊕) and the user cancels or commits with empty text, the item is deleted.
 
-#### Item Toolbar
+#### Per-Item Toolbar (right side)
 
-Each `<li>` in the checklist has a **fixed right-hand toolbar** containing icon buttons (Font Awesome):
+Each `<li>` shows only the price comparison display (no action buttons):
 
-| Button    | Icon            | Visibility         | Action                                                                 |
-| --------- | --------------- | ------------------ | ---------------------------------------------------------------------- |
-| Move up   | `fa-arrow-up`   | Always             | Swaps item with the previous item in `items` array. Disabled if first. |
-| Move down | `fa-arrow-down` | Always             | Swaps item with the next item in `items` array. Disabled if last.      |
-| Price     | `fa-calculator` | Shopping mode only | Opens the price calculator modal for this item.                        |
+- Price comparison text is shown in muted small text when in shopping mode.
 
-The toolbar is always visible (not hover-only) and positioned on the right side of each list item.
+No move-up/down/calculator/+/- buttons on individual items — all actions are in the bottom toolbar.
+
+#### Bottom Toolbar
+
+A `<nav class="bottom-toolbar">` fixed to the bottom of the viewport, visible in checkbox mode only (hidden in text mode and price view mode).
+
+**Left group (float left):**
+
+| Button | Icon                   | Disabled when                        | Action                                   |
+| ------ | ---------------------- | ------------------------------------ | ---------------------------------------- |
+| +      | `fa-plus`              | no item selected                     | Increase quantity of selected item       |
+| −      | `fa-minus`             | no item selected                     | Decrease quantity of selected item       |
+| ↑      | `fa-caret-up`          | no item selected                     | Move selected item up in `items` array   |
+| ↓      | `fa-caret-down`        | no item selected                     | Move selected item down in `items` array |
+| 🖩      | `fa-calculator`        | no item selected OR not shoppingMode | Open price modal for selected item       |
+| ↩      | `fa-arrow-rotate-left` | undo stack empty                     | Undo last items-array mutation           |
+
+**Right group (float right):**
+
+| Button | Icon             | Disabled when    | Action                                            |
+| ------ | ---------------- | ---------------- | ------------------------------------------------- |
+| ⊕      | `fa-circle-plus` | no item selected | Insert blank item after selected, enter edit mode |
+| 🗑      | `fa-trash`       | no item selected | Delete selected item                              |
+
+#### Quantity/Unit Display
+
+When an item's text starts with a quantity (and optional unit), it is displayed as a styled badge/prefix (e.g. `<span class="item-qty">2kg</span>`) before the item name in checklist view.
 
 #### Quantity/Unit Display
 
@@ -320,7 +348,7 @@ Any line not matching either pattern is silently skipped. The resulting object f
 
 ## Price Calculator Modal
 
-A native `<dialog>` element (Pico CSS supports `<dialog>` styling) opened from the item toolbar's price button.
+A native `<dialog>` element (Pico CSS supports `<dialog>` styling) opened from the bottom toolbar's calculator button (shopping mode only).
 
 ### Layout
 
@@ -329,10 +357,19 @@ A native `<dialog>` element (Pico CSS supports `<dialog>` styling) opened from t
 │  Price: apples                               │
 ├──────────────────────────────────────────────┤
 │                                              │
-│  [2026-03-28] [spar ▼] [5/1kg] [note...] [+]│  ← add entry form
+│  [2026-03-28] [spar ▼]                       │
+│  [5/1kg          ] = 5€/kg    [note...] [+]  │  ← add entry form
+│                                              │
+│  ┌────────────────────────────────────────┐  │
+│  │  7  │  8  │  9  │  /  │              │  │  ← numpad
+│  │  4  │  5  │  6  │  g  │              │  │
+│  │  1  │  2  │  3  │ kg  │              │  │
+│  │  0  │  .  │ DEL │  l  │              │  │
+│  │ CLR │ ml  │    ENTER   │              │  │
+│  └────────────────────────────────────────┘  │
 │                                              │
 │  2026-03-28 spar 10€/1kg good brand    [🗑]  │  ← existing entries
-│  2026-03-20 lidl  8€/1kg               [🗑]  │   (last 10, date desc)
+│  2026-03-20 lidl  8€/1kg               [🗑]  │
 │  ...                                         │
 │                                              │
 │                               [Close]        │
@@ -345,9 +382,17 @@ A native `<dialog>` element (Pico CSS supports `<dialog>` styling) opened from t
 - **Add form** — inputs:
   - Date (`<input type="date">`, defaults to today — wider than before to show full date).
   - Store (`<select>`: `lidl`, `spar`, `other`) — pre-filled from `selectedStore` in the nav, but editable per-entry.
-  - Raw price/amount (`<input type="text">`, e.g. `5/1kg` or `2.5/500g`), with a live normalized preview.
+  - Raw price/amount (`<input type="text">`, e.g. `5/1kg` or `2.5/500g` or `4/2` for unit-less), with a live normalized preview.
   - Info (`<input type="text">`, free-text note, optional).
   - Add button (`fa-plus` icon) appends entry and saves.
+- **Numpad** — targets the raw price/amount field. Buttons:
+  - Digits `0`–`9`: append digit to `priceForm.raw`.
+  - `/`, `.`: append character.
+  - `g`, `kg`, `l`, `ml`: append unit string (replacing any trailing existing unit to avoid duplicates).
+  - `DEL`: remove last character from `priceForm.raw`.
+  - `CLR`: clear `priceForm.raw`.
+  - `ENTER`: calls `addPriceEntry()`.
+  - Layout: 4-column grid, 5 rows — `7 8 9 /` | `4 5 6 g` | `1 2 3 kg` | `0 . DEL l` | `CLR ml ENTER(colspan-2)`.
 - **Entry list** — shows up to the last 10 entries sorted by date descending. Each row displays date, store, price€/amountUnit, info, and a delete button (`fa-trash`).
 - **Persistence** — entries are stored in `priceData` (inside `sldata` localStorage key), keyed by item name (lowercase).
 - **Close** button (or clicking backdrop) closes the modal.
@@ -395,6 +440,7 @@ priceForm: {
 | `filteredCheckedItems`   | `checkedItems` further filtered by `filterText` (case-insensitive substring)   |
 | `currentPriceEntries`    | `priceData[priceModalItem]` sliced to the last 10 entries, or `[]`             |
 | `priceFormNormalized`    | Live normalized price string (e.g. `= 5€/kg`) derived from `priceForm.raw`     |
+| `selectedItem`           | The item object whose `id === selectedItemId`, or `null`                       |
 
 ---
 
@@ -426,7 +472,14 @@ Parses the freeform price/amount input string.
 
 ### `normalizePrice(price, amount, amountUnit)`
 
-Returns a normalized per-kg or per-l price string for display (e.g. `5€/kg`).
+Returns a normalized per-kg, per-l, or per-unit price string for display.
+
+- `unit = "g"` → `price / amount * 1000` → `"X€/kg"`
+- `unit = "kg"` → `price / amount` → `"X€/kg"`
+- `unit = "ml"` → `price / amount * 1000` → `"X€/l"`
+- `unit = "l"` → `price / amount` → `"X€/l"`
+- `unit = null` (no unit) → `price / amount` → `"X€/pc"` (per piece / per unit)
+- Any other invalid input → `null`
 
 ### `today()`
 
@@ -474,38 +527,107 @@ Pure function. Parses raw checklist text back into items, reusing existing IDs w
 
 ## Vue Methods
 
+### `selectItem(item)`
+
+Toggles `selectedItemId`: if the item is already selected, sets `selectedItemId = null`; otherwise sets it to `item.id`.
+
+### `onItemPointerDown(item, event)`
+
+Records press start (`_pressStart = { id: item.id, moved: false }`). Starts a 500 ms timer; on expiry calls `startEdit(item)` and clears `_pressTimer`.
+
+### `onItemPointerUp(item)`
+
+If the timer is still pending (i.e., hold threshold not reached) and `_pressStart.moved` is false, calls `selectItem(item)`. Cancels the timer.
+
+### `onItemPointerMove()`
+
+Sets `_pressStart.moved = true` and cancels the long-press timer (prevents accidental edit on scroll).
+
+### `onItemPointerCancel()`
+
+Cancels the long-press timer.
+
+### `pushUndo()`
+
+Deep-clones `this.items` and pushes the snapshot onto `this.undoStack`. If the stack exceeds 10 entries, shifts the oldest off.
+
+### `undo()`
+
+Pops the most recent snapshot from `undoStack`, restores it to `this.items`, clears `selectedItemId`, and calls `save()`. No-op if the stack is empty.
+
 ### `toggleCheck(item)`
 
-1. Flip `item.checked`.
-2. If `shoppingMode` is **on** and the item just became **checked**:
+1. Calls `pushUndo()`.
+2. Flip `item.checked`.
+3. If `shoppingMode` is **on** and the item just became **checked**:
    - Find `insertIndex` = index of the first unchecked item in `items` (after the flip).
    - Splice the item out of its current position.
    - Insert it at `insertIndex` (it now sits at the bottom of the checked block / top of unchecked block).
-3. Call `save()`.
+4. Call `save()`.
 
 ### `startEdit(item)`
 
-Sets `item.editing = true`. On `nextTick`, focuses the inline input.
+Sets `editingItemId = item.id`, `editDraft = item.text`, `_editOriginal = item.text`. On `nextTick`, focuses the inline input.
 
-### `commitEdit(item, newText)`
+### `commitEdit(item)`
 
-Updates `item.text`, sets `item.editing = false`, calls `save()`.
+- Guard: if `editingItemId !== item.id`, return (prevents double-fire from blur+enter).
+- `trimmed = editDraft.trim()`
+- If `trimmed` is empty AND `_editOriginal` is empty → delete the item from `items`, clear `selectedItemId`.
+- Else: `item.text = trimmed || _editOriginal`.
+- Reset `editingItemId`, `editDraft`, `_editOriginal`. Call `save()`.
 
 ### `cancelEdit(item)`
 
-Reverts `item.text` to its pre-edit value, sets `item.editing = false`.
+- If `_editOriginal` is empty (item was newly created) → delete item, clear `selectedItemId`.
+- Else: revert `item.text = _editOriginal`.
+- Reset `editingItemId`, `editDraft`, `_editOriginal`.
 
 ### `moveUp(item)` / `moveDown(item)`
 
-Finds the item's index in `this.items` and swaps it with the adjacent item (previous / next). Calls `save()`. No-op if item is already at the boundary.
+Calls `pushUndo()`. Finds the item's position within the **same `checked` subgroup** (unchecked items can only move among unchecked; checked items among checked). Swaps the item with the adjacent one in that subgroup (using the flat `items` array indices of those group members). Calls `save()`. No-op if the item is already at the boundary of its subgroup.
+
+**Implementation note:** Build `groupIndices` by filtering `this.items` to those with the same `checked` state and extracting their flat indices. Find `posInGroup`, then swap `items[groupIndices[posInGroup ± 1]]`.
+
+### `adjustQty(item, delta)`
+
+Calls `pushUndo()`. Reads `parseItemText(item.text)`, computes new quantity (step = 100 for g/ml, 1 for kg/l/plain), updates `item.text`. Removes quantity prefix if new qty ≤ 0. Calls `save()`.
+
+### `deleteSelectedItem()`
+
+Calls `pushUndo()`. Splices `selectedItem` from `items`. Sets `selectedItemId = null`. Calls `save()`.
+
+### `addItemAfterSelected()`
+
+Calls `pushUndo()`. Inserts a new blank item `{ id: nextId++, text: '', checked: false }` immediately after `selectedItem` in `items` (or at the end if none selected). Clears `filterText`. Sets `selectedItemId` to the new item's id. On `nextTick`, calls `startEdit(newItem)`.
+
+### `uncheckAll()`
+
+Closes the burger menu (`menuOpen = false`). Calls `pushUndo()`. Sets `checked = false` on every item. Calls `save()`.
+
+### `copyAllData()`
+
+Closes the burger menu (`menuOpen = false`). Builds a plain-text string of all items: `[ ] text` (unchecked) or `[x] text` (checked), one per line. Writes it to the clipboard via `navigator.clipboard.writeText()`.
 
 ### `openPriceModal(item)`
 
 Sets `priceModalItem` to the item name (parsed via `parseItemText`). Resets `priceForm` with `date = today()`, `store = selectedStore`, `raw = ""`, `info = ""`. Opens the `<dialog>`.
 
+### `numpadInput(char)`
+
+Appends `char` to `priceForm.raw`.
+
+### `numpadDel()`
+
+Removes the last character from `priceForm.raw`.
+
+### `numpadUnit(unit)`
+
+Replaces any trailing unit suffix in `priceForm.raw` with the new unit (avoids `1kgkg`), then appends the unit if not already present.
+
 ### `addPriceEntry()`
 
-Reads `priceForm`. Pushes `{ date, store, price, priceUnit: "€", amount, amountUnit, info }` to `priceData[priceModalItem.toLowerCase()]`, sorts by date descending, calls `save()`.
+Reads `priceForm`. Pushes `{ date, store, price, priceUnit: "€", amount, amountUnit, info }` to `priceData[priceModalItem.toLowerCase()]`, sorts by date descending, resets `priceForm.raw` and `priceForm.info`, calls `save()`.
 
 ### `deletePriceEntry(itemName, index)`
 
@@ -533,6 +655,16 @@ localStorage.setItem('sldata', JSON.stringify({
 ### `load()` (called in `created()`)
 
 Reads `sldata` from `localStorage` and rehydrates `items`, `textMode`, `shoppingMode`, `selectedStore`, `_nextId`, `draftText`, `priceData`. Falls back to empty defaults if the key doesn't exist. Runs duplicate-ID dedup on loaded items.
+
+---
+
+## Undo
+
+- **Stack**: `undoStack` — array of deep-cloned `items` snapshots; max depth 10 (oldest entry dropped when full).
+- **What is saved**: `items` array only (order, text, checked state). `priceData`, mode flags, and `selectedItemId` are not part of undo.
+- **Trigger**: `pushUndo()` is called before every mutation: `toggleCheck`, `adjustQty`, `moveUp`, `moveDown`, `deleteSelectedItem`, `addItemAfterSelected`, and `commitEdit` (when text changes).
+- **Restore**: `undo()` pops the most recent snapshot, writes it to `items`, clears `selectedItemId`, calls `save()`.
+- **Not persisted** — the undo stack is lost on page refresh.
 
 ---
 
@@ -590,64 +722,99 @@ package.json        ← { "type": "module" } — enables ES module imports for N
 
 ### Inline editing
 
-15. Clicking an item's text in checklist view turns it into an editable input field.
-16. Pressing Enter or clicking away commits the edit.
+15. Holding (long-pressing ≥ 500 ms) an item's text enters inline edit mode.
+16. Pressing Enter or tapping away commits the edit.
 17. Pressing Escape cancels the edit and reverts to the original text.
 18. The transient `editing` flag is never persisted to `localStorage`.
+19. Committing or cancelling an edit on a newly-created blank item (via ⊕) deletes the item.
 
-### Item toolbar
+### Item selection
 
-19. Each checklist item displays move-up and move-down icon buttons on the right.
-20. Move-up/down correctly reorders items in the `items` array and persists the change.
-21. The price button is only visible when `shoppingMode` is on.
-22. The toolbar is always visible (not hover-only).
+20. Tapping an item in checkbox mode selects it — `::` indicator appears before its checkbox.
+21. Tapping the selected item deselects it; tapping a different item moves the selection.
+22. `selectedItemId` is not persisted.
+
+### Bottom toolbar
+
+23. The bottom toolbar is fixed to the viewport bottom, visible only in checkbox mode.
+24. +/- buttons adjust the quantity of the selected item (or add/remove a plain number prefix).
+25. ↑/↓ buttons move the selected item up or down in the `items` array.
+26. Calculator button (🖩) is disabled unless an item is selected AND `shoppingMode` is on.
+27. Undo button (↩) is disabled when the undo stack is empty.
+28. ⊕ inserts a blank item after the selected one and immediately enters inline edit mode.
+29. 🗑 deletes the selected item.
+30. All left-group buttons except ↩ are disabled when no item is selected; 🗑 and ⊕ are also disabled when no item is selected.
+
+### Undo
+
+31. Every items-array mutation (check, adjust qty, move, delete, add, edit) pushes a snapshot onto the undo stack before mutating.
+32. Undo restores the previous items state, clears `selectedItemId`, and saves.
+33. The undo stack is capped at 10 entries.
+34. The undo stack is not persisted — it resets on page refresh.
 
 ### Units
 
-23. Item text starting with `<number><unit>` (e.g. `2kg`, `500g`, `3`) is parsed and displayed as a quantity badge in checklist view.
-24. Supported units: `g`, `kg`, `ml`, `l`. Plain number (no unit) is also accepted.
-25. Items with no quantity prefix display normally with no badge.
-26. Unit parsing is display-only — the raw `text` field is preserved for text-mode round-tripping.
+35. Item text starting with `<number><unit>` (e.g. `2kg`, `500g`, `3`) is parsed and displayed as a quantity badge in checklist view.
+36. Supported units: `g`, `kg`, `ml`, `l`. Plain number (no unit) is also accepted.
+37. Items with no quantity prefix display normally with no badge.
+38. Unit parsing is display-only — the raw `text` field is preserved for text-mode round-tripping.
 
 ### Price calculator modal
 
-27. The price button in the toolbar opens a modal for the selected item.
-28. The modal shows up to the last 10 price entries sorted by date descending.
-29. New entries can be added with date, store, price/amount (raw input), and info note.
-30. Entries can be deleted individually.
-31. Price data is persisted in `localStorage` under `priceData`, keyed by item name (lowercase).
-32. The date input in the modal is wide enough to display the full YYYY-MM-DD value without truncation.
+39. The calculator button in the bottom toolbar opens a modal for the selected item (shopping mode only).
+40. The modal shows up to the last 10 price entries sorted by date descending.
+41. New entries can be added with date, store, price/amount (raw input), and info note.
+42. Entries can be deleted individually.
+43. Price data is persisted in `localStorage` under `priceData`, keyed by item name (lowercase).
+44. The date input in the modal is wide enough to display the full YYYY-MM-DD value without truncation.
+45. The numpad appends digits and units to the raw field; DEL removes last char; CLR clears; ENTER submits.
+46. A price entry with no unit (e.g. `4/2`) normalizes to `2€/pc` in the preview.
+47. Info text in price entries wraps to the next line at word boundaries (no mid-word breaks).
 
 ### Store selector
 
-33. A store `<select>` (`lidl`, `spar`, `other`) is always visible in the nav bar.
-34. The selected store is persisted to `localStorage` and restored on page load.
-35. Opening the price modal pre-fills the store field from the nav selector, but allows per-entry override.
-36. Each saved price entry records the store name alongside the other fields.
+48. A store `<select>` (`lidl`, `spar`, `other`) is always visible in the nav bar.
+49. The selected store is persisted to `localStorage` and restored on page load.
+50. Opening the price modal pre-fills the store field from the nav selector, but allows per-entry override.
+51. Each saved price entry records the store name alongside the other fields.
 
 ### Price data text view (editable)
 
-37. The Prices nav button toggles an editable textarea view of all price data.
-38. Items in the price view are sorted alphabetically; entries within each item by date descending.
-39. Only items with at least one price entry appear in the view.
-40. Each entry is rendered as: `  - date store price€/amountUnit info` (info is omitted if empty).
-41. Toggling the Prices view off parses the textarea content and overwrites `priceData` with the result, then saves.
-42. Entries with no info field round-trip correctly (render/parse with no info produces the same data).
-43. Old `localStorage` entries without `store` or `info` fields load without error (default to `""`).
+52. The `$` nav button toggles an editable textarea view of all price data.
+53. Items in the price view are sorted alphabetically; entries within each item by date descending.
+54. Only items with at least one price entry appear in the view.
+55. Each entry is rendered as: `  - date store price€/amountUnit info` (info is omitted if empty).
+56. Toggling the Prices view off parses the textarea content and overwrites `priceData` with the result, then saves.
+57. Entries with no info field round-trip correctly (render/parse with no info produces the same data).
+58. Old `localStorage` entries without `store` or `info` fields load without error (default to `""`).
+
+### Nav mode buttons
+
+59. The nav bar buttons appear in order: cart (🛒), T, $, Store dropdown, burger (☰).
+60. Each mode button (cart, T, $) shows the default text color when off and `var(--pico-primary)` blue when on.
+61. No Pico toggle switches in the nav.
+62. The burger menu button opens a dropdown with "Uncheck all" and "Copy all data" commands.
+63. Tapping outside the burger dropdown closes it.
+64. "Uncheck all" unchecks every item and pushes an undo snapshot.
+65. "Copy all data" writes all items as `[ ] text` / `[x] text` lines to the clipboard.
+
+### Move within subgroup
+
+66. ↑/↓ move an unchecked item only among other unchecked items; a checked item only among other checked items — the item never crosses the checked/unchecked boundary.
 
 ### File architecture
 
-44. `index.html` contains only the HTML shell and CDN link tags — no inline CSS or JS.
-45. All custom CSS lives in `docs/style.css` and is loaded via `<link>`.
-46. All pure logic lives in `docs/core.js` as an ES module.
-47. The Vue app lives in `docs/app.js` as an ES module that imports from `./core.js`.
-48. The app loads and functions correctly using the split file structure.
+62. `index.html` contains only the HTML shell and CDN link tags — no inline CSS or JS.
+63. All custom CSS lives in `docs/style.css` and is loaded via `<link>`.
+64. All pure logic lives in `docs/core.js` as an ES module.
+65. The Vue app lives in `docs/app.js` as an ES module that imports from `./core.js`.
+66. The app loads and functions correctly using the split file structure.
 
 ### Tests
 
-49. `node --test tests/` runs without errors.
-50. `parseItemText` is tested for quantity+unit, quantity-only, and no-quantity inputs.
-51. `parsePriceRaw` is tested for valid and invalid inputs.
-52. `normalizePrice` is tested for unit conversions (g→kg, ml→l) and null unit.
-53. `renderPriceViewText` and `parsePriceViewText` are tested for correctness and round-trip fidelity (including store and info fields).
-54. `renderText` and `parseTextLines` are tested for checklist text round-tripping.
+67. `node --test tests/` runs without errors.
+68. `parseItemText` is tested for quantity+unit, quantity-only, and no-quantity inputs.
+69. `parsePriceRaw` is tested for valid and invalid inputs.
+70. `normalizePrice` is tested for unit conversions (g→kg, ml→l), null unit (→ €/pc), and unknown unit (→ null).
+71. `renderPriceViewText` and `parsePriceViewText` are tested for correctness and round-trip fidelity (including store and info fields).
+72. `renderText` and `parseTextLines` are tested for checklist text round-tripping.

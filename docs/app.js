@@ -37,6 +37,13 @@ createApp({
             editDraft: '',
             _editOriginal: '',
 
+            // Item selection & undo
+            selectedItemId: null,   // transient, not persisted
+            undoStack: [],          // array of deep-cloned items snapshots; max 10
+            _pressTimer: null,
+            _pressStart: null,
+            menuOpen: false,
+
             // Price data: { "<name-lower>": [{ date, store, price, priceUnit, amount, amountUnit, info }] }
             priceData: {},
 
@@ -84,6 +91,12 @@ createApp({
             const p = parsePriceRaw(this.priceForm.raw);
             if (!p) return null;
             return normalizePrice(p.price, p.amount, p.unit);
+        },
+
+        /** Currently selected item object, or null */
+        selectedItem() {
+            if (this.selectedItemId === null) return null;
+            return this.items.find(i => i.id === this.selectedItemId) || null;
         },
     },
 
@@ -202,6 +215,7 @@ createApp({
             const idx = this.items.findIndex(i => i.id === item.id);
             if (idx === -1) return;
 
+            this.pushUndo();
             this.items[idx].checked = !this.items[idx].checked;
             const nowChecked = this.items[idx].checked;
 
@@ -231,14 +245,28 @@ createApp({
             // keyup.enter or keyup.escape already committed/cancelled — ignore it.
             if (this.editingItemId !== item.id) return;
             const trimmed = this.editDraft.trim();
-            item.text = trimmed || this._editOriginal;
+            if (!trimmed && !this._editOriginal) {
+                // New blank item — delete it
+                this.items.splice(this.items.findIndex(i => i.id === item.id), 1);
+                this.selectedItemId = null;
+            } else {
+                this.pushUndo();
+                item.text = trimmed || this._editOriginal;
+            }
             this.editingItemId = null;
             this.editDraft = '';
             this._editOriginal = '';
             this.save();
         },
         cancelEdit(item) {
-            item.text = this._editOriginal;
+            if (!this._editOriginal) {
+                // New blank item — delete it
+                this.items.splice(this.items.findIndex(i => i.id === item.id), 1);
+                this.selectedItemId = null;
+                this.save();
+            } else {
+                item.text = this._editOriginal;
+            }
             this.editingItemId = null;
             this.editDraft = '';
             this._editOriginal = '';
@@ -246,6 +274,7 @@ createApp({
 
         /* ── Adjust quantity ── */
         adjustQty(item, delta) {
+            this.pushUndo();
             const p = parseItemText(item.text);
             // Step depends on unit: 100 for g/ml, 1 for kg/l/plain
             const step = (p.unit === 'g' || p.unit === 'ml') ? 100 : 1;
@@ -256,6 +285,118 @@ createApp({
                 item.text = `${newQty}${p.unit ?? ''} ${p.name}`;
             }
             this.save();
+        },
+
+        /* ── Item selection ── */
+        selectItem(item) {
+            this.selectedItemId = (this.selectedItemId === item.id) ? null : item.id;
+        },
+
+        /* ── Long-press (hold to edit) ── */
+        onItemPointerDown(item, event) {
+            this._pressStart = { id: item.id, moved: false };
+            this._pressTimer = setTimeout(() => {
+                this._pressTimer = null;
+                this.startEdit(item);
+            }, 500);
+        },
+        onItemPointerUp(item) {
+            if (this._pressTimer !== null && this._pressStart && !this._pressStart.moved) {
+                clearTimeout(this._pressTimer);
+                this._pressTimer = null;
+                this.selectItem(item);
+            } else {
+                clearTimeout(this._pressTimer);
+                this._pressTimer = null;
+            }
+            this._pressStart = null;
+        },
+        onItemPointerMove() {
+            if (this._pressStart) this._pressStart.moved = true;
+            if (this._pressTimer !== null) {
+                clearTimeout(this._pressTimer);
+                this._pressTimer = null;
+            }
+        },
+        onItemPointerCancel() {
+            if (this._pressTimer !== null) {
+                clearTimeout(this._pressTimer);
+                this._pressTimer = null;
+            }
+            this._pressStart = null;
+        },
+
+        /* ── Undo ── */
+        pushUndo() {
+            this.undoStack.push(JSON.parse(JSON.stringify(this.items)));
+            if (this.undoStack.length > 10) this.undoStack.shift();
+        },
+        undo() {
+            if (this.undoStack.length === 0) return;
+            this.items = this.undoStack.pop();
+            this.selectedItemId = null;
+            this.save();
+        },
+
+        /* ── Move up / down (within same checked/unchecked subgroup) ── */
+        moveUp(item) {
+            const groupIndices = this.items
+                .map((it, i) => ({ it, i }))
+                .filter(({ it }) => it.checked === item.checked)
+                .map(({ i }) => i);
+            const posInGroup = groupIndices.findIndex(i => this.items[i].id === item.id);
+            if (posInGroup <= 0) return;
+            this.pushUndo();
+            const a = groupIndices[posInGroup - 1];
+            const b = groupIndices[posInGroup];
+            [this.items[a], this.items[b]] = [this.items[b], this.items[a]];
+            this.save();
+        },
+        moveDown(item) {
+            const groupIndices = this.items
+                .map((it, i) => ({ it, i }))
+                .filter(({ it }) => it.checked === item.checked)
+                .map(({ i }) => i);
+            const posInGroup = groupIndices.findIndex(i => this.items[i].id === item.id);
+            if (posInGroup === -1 || posInGroup >= groupIndices.length - 1) return;
+            this.pushUndo();
+            const a = groupIndices[posInGroup];
+            const b = groupIndices[posInGroup + 1];
+            [this.items[a], this.items[b]] = [this.items[b], this.items[a]];
+            this.save();
+        },
+
+        /* ── Delete / add selected item ── */
+        deleteSelectedItem() {
+            if (!this.selectedItem) return;
+            this.pushUndo();
+            this.items.splice(this.items.findIndex(i => i.id === this.selectedItemId), 1);
+            this.selectedItemId = null;
+            this.save();
+        },
+        addItemAfterSelected() {
+            this.pushUndo();
+            const newItem = { id: this._nextId++, text: '', checked: false };
+            const idx = this.selectedItem
+                ? this.items.findIndex(i => i.id === this.selectedItemId)
+                : this.items.length - 1;
+            this.items.splice(idx + 1, 0, newItem);
+            this.filterText = '';
+            this.selectedItemId = newItem.id;
+            nextTick(() => this.startEdit(newItem));
+        },
+
+        /* ── Burger menu commands ── */
+        uncheckAll() {
+            this.menuOpen = false;
+            this.pushUndo();
+            this.items.forEach(item => { item.checked = false; });
+            this.save();
+        },
+        copyAllData() {
+            this.menuOpen = false;
+            const text = this.items.map(item => (item.checked ? '[x] ' : '[ ] ') + item.text).join('\n');
+            navigator.clipboard.writeText(text).catch(() => { });
         },
 
         /* ── Price modal ── */
@@ -295,6 +436,19 @@ createApp({
                 this.priceData[name].splice(idx, 1);
                 this.save();
             }
+        },
+
+        /* ── Numpad ── */
+        numpadInput(char) {
+            this.priceForm.raw += char;
+        },
+        numpadDel() {
+            this.priceForm.raw = this.priceForm.raw.slice(0, -1);
+        },
+        numpadUnit(unit) {
+            // Remove any trailing unit suffix before appending
+            this.priceForm.raw = this.priceForm.raw.replace(/(g|kg|ml|l)$/i, '');
+            this.priceForm.raw += unit;
         },
 
         /* ── Persistence ── */
@@ -353,5 +507,6 @@ createApp({
 
     created() {
         this.load();
+        document.addEventListener('click', () => { this.menuOpen = false; });
     },
 }).mount('#app');

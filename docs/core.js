@@ -66,6 +66,7 @@ export function normalizePrice(price, amount, unit) {
     else if (unit === 'kg') { perUnit = price / amount; label = 'kg'; }
     else if (unit === 'ml') { perUnit = price / amount * 1000; label = 'l'; }
     else if (unit === 'l') { perUnit = price / amount; label = 'l'; }
+    else if (unit === null || unit === undefined) { perUnit = price / amount; label = 'pc'; }
     else return null;
     const rounded = Math.round(perUnit * 100) / 100;
     return `${rounded}\u20ac/${label}`;
